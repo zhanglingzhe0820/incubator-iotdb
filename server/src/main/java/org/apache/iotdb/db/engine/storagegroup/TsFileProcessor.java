@@ -126,15 +126,14 @@ public class TsFileProcessor {
     this.schema = schema;
     this.tsFileResource = new TsFileResource(tsfile, this);
     this.versionController = versionController;
-    this.writer = new RestorableTsFileIOWriter(tsfile);
+    if (IoTDBDescriptor.getInstance().getConfig().isPreAllocateDataFile()) {
+      preAllocateTsFile(tsfile);
+    }
+    this.writer = new RestorableTsFileIOWriter(tsfile, false);
     this.closeTsFileCallback = closeTsFileCallback;
     this.updateLatestFlushTimeCallback = updateLatestFlushTimeCallback;
     this.sequence = sequence;
     logger.info("create a new tsfile processor {}", tsfile.getAbsolutePath());
-
-    if (IoTDBDescriptor.getInstance().getConfig().isPreAllocateDataFile()) {
-      preAllocateTsFile(tsfile);
-    }
   }
 
   private void preAllocateTsFile(File tsFile) throws IOException {

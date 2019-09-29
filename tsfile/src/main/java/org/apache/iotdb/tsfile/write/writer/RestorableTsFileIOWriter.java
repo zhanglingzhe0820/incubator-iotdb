@@ -66,13 +66,17 @@ public class RestorableTsFileIOWriter extends TsFileIOWriter {
     return truncatedPosition;
   }
 
+  public RestorableTsFileIOWriter(File file) throws IOException {
+    this(file, true);
+  }
+
   /**
    * @param file a given tsfile path you want to (continue to) write
    * @throws IOException if write failed, or the file is broken but autoRepair==false.
    */
-  public RestorableTsFileIOWriter(File file) throws IOException {
+  public RestorableTsFileIOWriter(File file, boolean append) throws IOException {
     this.file = file;
-    this.out = FileOutputFactory.INSTANCE.getTsFileOutput(file.getPath(), true);
+    this.out = FileOutputFactory.INSTANCE.getTsFileOutput(file.getPath(), append);
 
     // file doesn't exist
     if (file.length() == 0) {
