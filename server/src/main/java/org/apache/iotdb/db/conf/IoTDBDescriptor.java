@@ -279,6 +279,9 @@ public class IoTDBDescriptor {
       TSFileDescriptor.getInstance().getConfig().setHdfsIp(properties.getProperty("hdfs_ip"));
       TSFileDescriptor.getInstance().getConfig().setHdfsPort(properties.getProperty("hdfs_port"));
 
+      conf.setPreAllocateDataFile(Boolean.parseBoolean(properties.getProperty("preallocate_data_file",
+          String.valueOf(conf.isPreAllocateDataFile()))));
+
     } catch (IOException e) {
       logger.warn("Cannot load config file because, use default configuration", e);
     } catch (Exception e) {

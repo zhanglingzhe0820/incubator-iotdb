@@ -20,6 +20,10 @@ package org.apache.iotdb.db.engine.storagegroup;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.OpenOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -127,6 +131,21 @@ public class TsFileProcessor {
     this.updateLatestFlushTimeCallback = updateLatestFlushTimeCallback;
     this.sequence = sequence;
     logger.info("create a new tsfile processor {}", tsfile.getAbsolutePath());
+
+    if (IoTDBDescriptor.getInstance().getConfig().isPreAllocateDataFile()) {
+      preAllocateTsFile(tsfile);
+    }
+  }
+
+  private void preAllocateTsFile(File tsFile) throws IOException {
+    try (FileChannel fileChannel = FileChannel.open(tsFile.toPath(), StandardOpenOption.CREATE_NEW)) {
+      long fileSizeThreshold = IoTDBDescriptor.getInstance().getConfig().getTsFileSizeThreshold();
+      // usually, jvm cannot allocate size of just Integer.maxValue, so we use a smaller value
+      // instead
+      int preAllocateSize =
+          (fileSizeThreshold > Integer.MAX_VALUE / 2) ? Integer.MAX_VALUE / 2 : (int) fileSizeThreshold;
+      fileChannel.write(ByteBuffer.allocate(preAllocateSize));
+    }
   }
 
   /**

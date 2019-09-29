@@ -346,6 +346,12 @@ public class IoTDBConfig {
    */
   private String hdfsPort = "9000";
 
+  /**
+   * When enabled, write empty bytes into a new TsFile to make the disk distribution of it
+   * more local.
+   */
+  private boolean preAllocateDataFile = false;
+
   public IoTDBConfig() {
     // empty constructor
   }
@@ -950,5 +956,13 @@ public class IoTDBConfig {
 
   public void setHdfsPort(String hdfsPort) {
     this.hdfsPort = hdfsPort;
+  }
+
+  public boolean isPreAllocateDataFile() {
+    return preAllocateDataFile;
+  }
+
+  public void setPreAllocateDataFile(boolean preAllocateDataFile) {
+    this.preAllocateDataFile = preAllocateDataFile;
   }
 }
