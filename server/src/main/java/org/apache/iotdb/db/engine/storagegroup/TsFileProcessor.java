@@ -145,6 +145,7 @@ public class TsFileProcessor {
       int preAllocateSize =
           (fileSizeThreshold > Integer.MAX_VALUE / 2) ? Integer.MAX_VALUE / 2 : (int) fileSizeThreshold;
       fileChannel.write(ByteBuffer.allocate(preAllocateSize));
+      fileChannel.force(true);
     }
   }
 
