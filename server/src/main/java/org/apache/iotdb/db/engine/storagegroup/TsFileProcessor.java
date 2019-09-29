@@ -138,12 +138,14 @@ public class TsFileProcessor {
   }
 
   private void preAllocateTsFile(File tsFile) throws IOException {
+
     try (FileChannel fileChannel = FileChannel.open(tsFile.toPath(), StandardOpenOption.CREATE_NEW)) {
       long fileSizeThreshold = IoTDBDescriptor.getInstance().getConfig().getTsFileSizeThreshold();
       // usually, jvm cannot allocate size of just Integer.maxValue, so we use a smaller value
       // instead
       int preAllocateSize =
           (fileSizeThreshold > Integer.MAX_VALUE / 2) ? Integer.MAX_VALUE / 2 : (int) fileSizeThreshold;
+      logger.info("Allocating space {}B for {}", preAllocateSize, tsFile.getAbsolutePath());
       ByteBuffer emptyBuffer = ByteBuffer.allocate(preAllocateSize);
       emptyBuffer.limit(emptyBuffer.capacity());
       fileChannel.write(emptyBuffer);
