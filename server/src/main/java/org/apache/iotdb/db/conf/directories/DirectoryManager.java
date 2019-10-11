@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.conf.directories.strategy.DirectoryStrategy;
+import org.apache.iotdb.db.conf.directories.strategy.TimeWindowStrategy;
 import org.apache.iotdb.db.exception.DiskSpaceInsufficientException;
 import org.apache.iotdb.tsfile.fileSystem.TSFileFactory;
 import org.slf4j.Logger;
@@ -40,6 +41,9 @@ public class DirectoryManager {
   private List<String> unsequenceFileFolders;
   private DirectoryStrategy sequenceStrategy;
   private DirectoryStrategy unsequenceStrategy;
+  private DirectoryStrategy mergeStrategy;
+
+  private boolean usingTimeWindowStrategy = false;
 
   private DirectoryManager() {
     sequenceFileFolders =
@@ -56,16 +60,28 @@ public class DirectoryManager {
     }
     mkDataDirs(unsequenceFileFolders);
 
-    String strategyName = "";
+    String dataStrategyName = "";
+    String mergeStrategyName;
     try {
-      strategyName = IoTDBDescriptor.getInstance().getConfig().getMultiDirStrategyClassName();
-      Class<?> clazz = Class.forName(strategyName);
-      sequenceStrategy = (DirectoryStrategy) clazz.newInstance();
+      dataStrategyName = IoTDBDescriptor.getInstance().getConfig().getMultiDirStrategyClassName();
+      mergeStrategyName = IoTDBDescriptor.getInstance().getConfig().getMergeStrategyClassName();
+      Class<?> dsClazz = Class.forName(dataStrategyName);
+      Class<?> msClazz = Class.forName(mergeStrategyName);
+
+      sequenceStrategy = (DirectoryStrategy) dsClazz.newInstance();
       sequenceStrategy.init(sequenceFileFolders);
-      unsequenceStrategy = (DirectoryStrategy) clazz.newInstance();
+      unsequenceStrategy = (DirectoryStrategy) dsClazz.newInstance();
       unsequenceStrategy.init(unsequenceFileFolders);
+      mergeStrategy = (DirectoryStrategy) msClazz.newInstance();
+      mergeStrategy.init(Arrays.asList(IoTDBDescriptor.getInstance().getConfig().getDataDirs()));
+
+      if (sequenceStrategy instanceof TimeWindowStrategy) {
+        // sequence strategy is 1 unit ahead of the merge strategy
+        ((TimeWindowStrategy) sequenceStrategy).setIndexOffset(1);
+        usingTimeWindowStrategy = true;
+      }
     } catch (Exception e) {
-      logger.error("can't find sequenceStrategy {} for mult-directories.", strategyName, e);
+      logger.error("can't find sequenceStrategy {} for mult-directories.", dataStrategyName, e);
     }
   }
 
@@ -137,11 +153,11 @@ public class DirectoryManager {
    *
    * @return next folder index
    */
-  public int getNextFolderIndexForUnSequenceFile() throws DiskSpaceInsufficientException {
+  private int getNextFolderIndexForUnSequenceFile() throws DiskSpaceInsufficientException {
     return unsequenceStrategy.nextFolderIndex();
   }
 
-  public String getUnSequenceFileFolder(int index) {
+  private String getUnSequenceFileFolder(int index) {
     return unsequenceFileFolders.get(index);
   }
 
@@ -156,5 +172,15 @@ public class DirectoryManager {
   // only used by test
   public String getUnSequenceFolderForTest() {
     return unsequenceFileFolders.get(0);
+  }
+
+  public boolean isUsingTimeWindowStrategy() {
+    return usingTimeWindowStrategy;
+  }
+
+  public String getNextFolderForMerge() throws DiskSpaceInsufficientException {
+    int index = mergeStrategy.nextFolderIndex();
+    // a return value of null means files in all folders can be merged
+    return index != -1 ? sequenceFileFolders.get(index) : null;
   }
 }

@@ -137,6 +137,12 @@ public class IoTDBConfig {
   private String multiDirStrategyClassName = null;
 
   /**
+   *
+   */
+  private String mergeStrategyClassName = "org.apache.iotdb.db.conf.directories.strategy"
+      + ".TimeWindowStrategy";
+
+  /**
    * Wal directory.
    */
   private String walFolder = "data/wal";
@@ -360,6 +366,12 @@ public class IoTDBConfig {
    * Default HDFS port is 9000
    */
   private String hdfsPort = "9000";
+
+  /**
+   * default time unit of TimeWindowStrategy
+   */
+  private long windowDirStrategyTimeUnit = 3600 * 1000;
+
 
   public IoTDBConfig() {
     // empty constructor
@@ -991,5 +1003,17 @@ public class IoTDBConfig {
 
   public void setHdfsPort(String hdfsPort) {
     this.hdfsPort = hdfsPort;
+  }
+
+  public long getWindowDirStrategyTimeUnit() {
+    return windowDirStrategyTimeUnit;
+  }
+
+  public void setWindowDirStrategyTimeUnit(long windowDirStrategyTimeUnit) {
+    this.windowDirStrategyTimeUnit = windowDirStrategyTimeUnit;
+  }
+
+  public String getMergeStrategyClassName() {
+    return mergeStrategyClassName;
   }
 }

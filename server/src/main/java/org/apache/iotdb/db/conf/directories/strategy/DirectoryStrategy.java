@@ -35,7 +35,7 @@ public abstract class DirectoryStrategy {
   /**
    * All the folders of data files, should be init once the subclass is created.
    */
-  protected List<String> folders;
+  List<String> folders;
 
   /**
    * To init folders. Do not recommend to overwrite.
@@ -72,7 +72,7 @@ public abstract class DirectoryStrategy {
    * @param index the index of the folder
    * @return the string value of the folder
    */
-  public String getTsFileFolder(int index) {
+  private String getTsFileFolder(int index) {
     return folders.get(index);
   }
 

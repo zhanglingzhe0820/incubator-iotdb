@@ -39,6 +39,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.io.FileUtils;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.conf.directories.DirectoryManager;
+import org.apache.iotdb.db.engine.StorageEngine;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
 import org.apache.iotdb.db.engine.merge.selector.IMergeFileSelector;
@@ -845,6 +846,9 @@ public class StorageGroupProcessor {
   }
 
   public void merge(boolean fullMerge) {
+    if (IoTDBDescriptor.getInstance().getConfig().isReadOnly()) {
+      return;
+    }
     writeLock();
     try {
       if (isMerging) {
@@ -860,7 +864,17 @@ public class StorageGroupProcessor {
       }
 
       long budget = IoTDBDescriptor.getInstance().getConfig().getMergeMemoryBudget();
-      MergeResource mergeResource = new MergeResource(sequenceFileList, unSequenceFileList);
+
+      List<TsFileResource> cpSeqFileList = new ArrayList<>(sequenceFileList);
+      List<TsFileResource> cpUnseqFileList = new ArrayList<>(unSequenceFileList);
+      String allowedMergeDir = DirectoryManager.getInstance().getNextFolderForMerge();
+      if (allowedMergeDir != null) {
+        // remove files that are not allowed to merge currently
+        cpSeqFileList.removeIf(file -> !file.getFile().getAbsolutePath().startsWith(allowedMergeDir));
+        cpUnseqFileList.removeIf(file -> !file.getFile().getAbsolutePath().startsWith(allowedMergeDir));
+      }
+
+      MergeResource mergeResource = new MergeResource(cpSeqFileList, cpUnseqFileList);
       IMergeFileSelector fileSelector = getMergeFileSelector(budget, mergeResource);
       try {
         List[] mergeFiles = fileSelector.select();
@@ -890,6 +904,9 @@ public class StorageGroupProcessor {
       } catch (MergeException | IOException e) {
         logger.error("{} cannot select file for merge", storageGroupName, e);
       }
+    } catch (DiskSpaceInsufficientException e) {
+      logger.error("No sufficient space, merge aborted.", e);
+      IoTDBDescriptor.getInstance().getConfig().setReadOnly(true);
     } finally {
       writeUnlock();
     }
