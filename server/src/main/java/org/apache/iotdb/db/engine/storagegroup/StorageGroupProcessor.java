@@ -845,6 +845,21 @@ public class StorageGroupProcessor {
     }
   }
 
+  /**
+   *
+   * @param filePath
+   * @param folders
+   * @return true if filePath belongs to any folder in folders, false otherwise
+   */
+  private boolean containedIn(String filePath, List<String> folders) {
+    for (String folder : folders) {
+      if (filePath.startsWith(folder)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public void merge(boolean fullMerge) {
     if (IoTDBDescriptor.getInstance().getConfig().isReadOnly()) {
       return;
@@ -867,11 +882,11 @@ public class StorageGroupProcessor {
 
       List<TsFileResource> cpSeqFileList = new ArrayList<>(sequenceFileList);
       List<TsFileResource> cpUnseqFileList = new ArrayList<>(unSequenceFileList);
-      String allowedMergeDir = DirectoryManager.getInstance().getNextFolderForMerge();
-      if (allowedMergeDir != null) {
+      List<String> allowedMergeDirs = DirectoryManager.getInstance().getMergableFolders();
+      if (allowedMergeDirs != null) {
         // remove files that are not allowed to merge currently
-        cpSeqFileList.removeIf(file -> !file.getFile().getAbsolutePath().startsWith(allowedMergeDir));
-        cpUnseqFileList.removeIf(file -> !file.getFile().getAbsolutePath().startsWith(allowedMergeDir));
+        cpSeqFileList.removeIf(file -> !containedIn(file.getFile().getAbsolutePath(), allowedMergeDirs));
+        cpUnseqFileList.removeIf(file -> !containedIn(file.getFile().getAbsolutePath(), allowedMergeDirs));
       }
 
       MergeResource mergeResource = new MergeResource(cpSeqFileList, cpUnseqFileList);

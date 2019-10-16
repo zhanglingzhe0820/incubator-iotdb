@@ -72,14 +72,8 @@ public class DirectoryManager {
       sequenceStrategy.init(sequenceFileFolders);
       unsequenceStrategy = (DirectoryStrategy) dsClazz.newInstance();
       unsequenceStrategy.init(unsequenceFileFolders);
-      mergeStrategy = (DirectoryStrategy) msClazz.newInstance();
-      mergeStrategy.init(Arrays.asList(IoTDBDescriptor.getInstance().getConfig().getDataDirs()));
+      mergeStrategy = sequenceStrategy;
 
-      if (sequenceStrategy instanceof TimeWindowStrategy) {
-        // sequence strategy is 1 unit ahead of the merge strategy
-        ((TimeWindowStrategy) sequenceStrategy).setIndexOffset(1);
-        usingTimeWindowStrategy = true;
-      }
     } catch (Exception e) {
       logger.error("can't find sequenceStrategy {} for mult-directories.", dataStrategyName, e);
     }
@@ -121,7 +115,7 @@ public class DirectoryManager {
    * @return next folder index
    */
   public int getNextFolderIndexForSequenceFile() throws DiskSpaceInsufficientException {
-    return sequenceStrategy.nextFolderIndex();
+    return sequenceStrategy.nextInsertFolderIndex();
   }
 
   public String getSequenceFileFolder(int index) {
@@ -154,7 +148,7 @@ public class DirectoryManager {
    * @return next folder index
    */
   private int getNextFolderIndexForUnSequenceFile() throws DiskSpaceInsufficientException {
-    return unsequenceStrategy.nextFolderIndex();
+    return unsequenceStrategy.nextInsertFolderIndex();
   }
 
   private String getUnSequenceFileFolder(int index) {
@@ -178,9 +172,7 @@ public class DirectoryManager {
     return usingTimeWindowStrategy;
   }
 
-  public String getNextFolderForMerge() throws DiskSpaceInsufficientException {
-    int index = mergeStrategy.nextFolderIndex();
-    // a return value of null means files in all folders can be merged
-    return index != -1 ? sequenceFileFolders.get(index) : null;
+  public List<String> getMergableFolders() throws DiskSpaceInsufficientException {
+    return sequenceStrategy.getMergableDirs();
   }
 }

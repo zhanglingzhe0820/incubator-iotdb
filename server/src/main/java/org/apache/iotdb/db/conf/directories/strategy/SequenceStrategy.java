@@ -42,7 +42,7 @@ public class SequenceStrategy extends DirectoryStrategy {
   }
 
   @Override
-  public int nextFolderIndex() throws DiskSpaceInsufficientException {
+  public int nextInsertFolderIndex() throws DiskSpaceInsufficientException {
     int index = currentIndex;
     currentIndex = tryGetNextIndex(index);
 

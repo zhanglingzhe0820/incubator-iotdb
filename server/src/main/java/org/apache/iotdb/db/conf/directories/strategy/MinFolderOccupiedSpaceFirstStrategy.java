@@ -25,7 +25,7 @@ import org.apache.iotdb.db.utils.CommonUtils;
 public class MinFolderOccupiedSpaceFirstStrategy extends DirectoryStrategy {
 
   @Override
-  public int nextFolderIndex() throws DiskSpaceInsufficientException {
+  public int nextInsertFolderIndex() throws DiskSpaceInsufficientException {
     return getMinOccupiedSpaceFolder();
   }
 

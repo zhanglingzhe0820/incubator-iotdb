@@ -29,7 +29,7 @@ import org.apache.iotdb.db.exception.DiskSpaceInsufficientException;
 public class NopStrategy extends DirectoryStrategy {
 
   @Override
-  public int nextFolderIndex() throws DiskSpaceInsufficientException {
+  public int nextInsertFolderIndex() throws DiskSpaceInsufficientException {
     return -1;
   }
 }

@@ -64,7 +64,7 @@ public abstract class DirectoryStrategy {
    *
    * @return the index of folder that will be allocated
    */
-  public abstract int nextFolderIndex() throws DiskSpaceInsufficientException;
+  public abstract int nextInsertFolderIndex() throws DiskSpaceInsufficientException;
 
   /**
    * Return the actual string value of a folder by its index.
@@ -74,6 +74,15 @@ public abstract class DirectoryStrategy {
    */
   private String getTsFileFolder(int index) {
     return folders.get(index);
+  }
+
+  /**
+   *
+   * @return a list of dirs where merge is allowed, return null if all dirs are allowed
+   * @throws DiskSpaceInsufficientException
+   */
+  public List<String> getMergableDirs() throws DiskSpaceInsufficientException {
+    return null;
   }
 
   // only used by test
