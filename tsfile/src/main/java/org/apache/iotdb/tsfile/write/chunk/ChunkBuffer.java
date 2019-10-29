@@ -195,7 +195,7 @@ public class ChunkBuffer {
     long size = writer.getPos() - totalByteSize;
     assert size == pageBuffer.size();
 
-    writer.endChunk(totalValueCount);
+    writer.endChunk(totalValueCount, size);
     return headerSize + size;
   }
 

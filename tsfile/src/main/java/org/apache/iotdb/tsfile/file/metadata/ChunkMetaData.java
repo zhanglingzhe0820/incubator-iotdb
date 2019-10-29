@@ -68,6 +68,11 @@ public class ChunkMetaData {
 
   private TsDigest valuesStatistics;
 
+  /**
+   * chunk data size.
+   */
+  private long dataSize;
+
   private ChunkMetaData() {
   }
 
@@ -108,6 +113,7 @@ public class ChunkMetaData {
     chunkMetaData.endTime = ReadWriteIOUtils.readLong(inputStream);
 
     chunkMetaData.tsDataType = ReadWriteIOUtils.readDataType(inputStream);
+    chunkMetaData.dataSize = ReadWriteIOUtils.readLong(inputStream);
 
     chunkMetaData.valuesStatistics = TsDigest.deserializeFrom(inputStream);
 
@@ -129,6 +135,7 @@ public class ChunkMetaData {
     chunkMetaData.startTime = ReadWriteIOUtils.readLong(buffer);
     chunkMetaData.endTime = ReadWriteIOUtils.readLong(buffer);
     chunkMetaData.tsDataType = ReadWriteIOUtils.readDataType(buffer);
+    chunkMetaData.dataSize = ReadWriteIOUtils.readLong(buffer);
 
     chunkMetaData.valuesStatistics = TsDigest.deserializeFrom(buffer);
 
@@ -144,6 +151,7 @@ public class ChunkMetaData {
     int serializedSize = (Integer.BYTES  +
             4 * Long.BYTES + // 4 long: offsetOfChunkHeader, numOfPoints, startTime, endTime
             TSDataType.getSerializedSize() + // TSDataType
+         Long.BYTES + // data size
             (valuesStatistics == null ? TsDigest.getNullDigestSize()
                     : valuesStatistics.getSerializedSize()));
     try {
@@ -231,6 +239,7 @@ public class ChunkMetaData {
     byteLen += ReadWriteIOUtils.write(startTime, outputStream);
     byteLen += ReadWriteIOUtils.write(endTime, outputStream);
     byteLen += ReadWriteIOUtils.write(tsDataType, outputStream);
+    byteLen += ReadWriteIOUtils.write(dataSize, outputStream);
 
     if (valuesStatistics == null) {
       byteLen += TsDigest.serializeNullTo(outputStream);
@@ -255,6 +264,7 @@ public class ChunkMetaData {
     byteLen += ReadWriteIOUtils.write(startTime, buffer);
     byteLen += ReadWriteIOUtils.write(endTime, buffer);
     byteLen += ReadWriteIOUtils.write(tsDataType, buffer);
+    byteLen += ReadWriteIOUtils.write(dataSize, buffer);
 
     if (valuesStatistics == null) {
       byteLen += TsDigest.serializeNullTo(buffer);
@@ -280,6 +290,14 @@ public class ChunkMetaData {
     this.deletedAt = deletedAt;
   }
 
+  public long getDataSize() {
+    return dataSize;
+  }
+
+  public void setDataSize(long dataSize) {
+    this.dataSize = dataSize;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -297,6 +315,7 @@ public class ChunkMetaData {
         deletedAt == that.deletedAt &&
         Objects.equals(measurementUid, that.measurementUid) &&
         tsDataType == that.tsDataType &&
+        dataSize == that.dataSize &&
         Objects.equals(valuesStatistics, that.valuesStatistics);
   }
 }

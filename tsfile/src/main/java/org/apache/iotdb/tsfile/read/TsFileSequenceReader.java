@@ -291,8 +291,9 @@ public class TsFileSequenceReader implements AutoCloseable {
    * @param position the file offset of this chunk's header
    * @param markerRead true if the offset does not contains the marker , otherwise false
    */
-  private ChunkHeader readChunkHeader(long position, boolean markerRead) throws IOException {
-    return ChunkHeader.deserializeFrom(tsFileInput, position, markerRead);
+  private ChunkHeader readChunkHeader(long position, int chunkHeaderSize, boolean markerRead)
+      throws IOException {
+    return ChunkHeader.deserializeFrom(tsFileInput, position, chunkHeaderSize, markerRead);
   }
 
   /**
@@ -333,9 +334,13 @@ public class TsFileSequenceReader implements AutoCloseable {
    * @return -chunk
    */
   public Chunk readMemChunk(ChunkMetaData metaData) throws IOException {
-    ChunkHeader header = readChunkHeader(metaData.getOffsetOfChunkHeader(), false);
-    ByteBuffer buffer = readChunk(metaData.getOffsetOfChunkHeader() + header.getSerializedSize(),
-        header.getDataSize());
+    int chunkHeadSize = ChunkHeader.getSerializedSize(metaData.getMeasurementUid());
+    long chunkHeaderPos = metaData.getOffsetOfChunkHeader();
+    long chunkDataPos = metaData.getOffsetOfChunkHeader() + chunkHeadSize;
+    int chunkDataSize = (int) metaData.getDataSize();
+
+    ByteBuffer buffer = readChunk(chunkDataPos, chunkDataSize);
+    ChunkHeader header = readChunkHeader(chunkHeaderPos, chunkHeadSize, false);
     return new Chunk(header, buffer);
   }
 
@@ -569,11 +574,16 @@ public class TsFileSequenceReader implements AutoCloseable {
                 startTimeOfChunk, endTimeOfChunk);
             currentChunk.setNumOfPoints(numOfPoints);
             Map<String, ByteBuffer> statisticsMap = new HashMap<>();
-            statisticsMap.put(StatisticConstant.MAX_VALUE, ByteBuffer.wrap(chunkStatistics.getMaxBytes()));
-            statisticsMap.put(StatisticConstant.MIN_VALUE, ByteBuffer.wrap(chunkStatistics.getMinBytes()));
-            statisticsMap.put(StatisticConstant.FIRST, ByteBuffer.wrap(chunkStatistics.getFirstBytes()));
-            statisticsMap.put(StatisticConstant.SUM, ByteBuffer.wrap(chunkStatistics.getSumBytes()));
-            statisticsMap.put(StatisticConstant.LAST, ByteBuffer.wrap(chunkStatistics.getLastBytes()));
+            statisticsMap
+                .put(StatisticConstant.MAX_VALUE, ByteBuffer.wrap(chunkStatistics.getMaxBytes()));
+            statisticsMap
+                .put(StatisticConstant.MIN_VALUE, ByteBuffer.wrap(chunkStatistics.getMinBytes()));
+            statisticsMap
+                .put(StatisticConstant.FIRST, ByteBuffer.wrap(chunkStatistics.getFirstBytes()));
+            statisticsMap
+                .put(StatisticConstant.SUM, ByteBuffer.wrap(chunkStatistics.getSumBytes()));
+            statisticsMap
+                .put(StatisticConstant.LAST, ByteBuffer.wrap(chunkStatistics.getLastBytes()));
             TsDigest tsDigest = new TsDigest();
             tsDigest.setStatistics(statisticsMap);
             currentChunk.setDigest(tsDigest);

@@ -210,8 +210,9 @@ public class TsFileIOWriter {
    *
    * @param totalValueCount -set the number of points to the currentChunkMetaData
    */
-  public void endChunk(long totalValueCount) {
+  public void endChunk(long totalValueCount, long size) {
     currentChunkMetaData.setNumOfPoints(totalValueCount);
+    currentChunkMetaData.setDataSize(size);
     currentChunkGroupMetaData.addTimeSeriesChunkMetaData(currentChunkMetaData);
     LOG.debug("end series chunk:{},totalvalue:{}", currentChunkMetaData, totalValueCount);
     currentChunkMetaData = null;
