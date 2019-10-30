@@ -573,6 +573,7 @@ public class TsFileSequenceReader implements AutoCloseable {
             currentChunk = new ChunkMetaData(measurementID, dataType, fileOffsetOfChunk,
                 startTimeOfChunk, endTimeOfChunk);
             currentChunk.setNumOfPoints(numOfPoints);
+            currentChunk.setDataSize(header.getDataSize());
             Map<String, ByteBuffer> statisticsMap = new HashMap<>();
             statisticsMap
                 .put(StatisticConstant.MAX_VALUE, ByteBuffer.wrap(chunkStatistics.getMaxBytes()));
