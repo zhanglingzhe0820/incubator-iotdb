@@ -110,7 +110,7 @@ public class Path implements Serializable {
       measurement = subStrs[1];
       fullPath = pathSc;
     } else {
-      StringContainer sc = new StringContainer(pathSc.split(TsFileConstant.PATH_SEPARATER_NO_REGEX), TsFileConstant.PATH_SEPARATOR);
+      StringContainer sc = new StringContainer(pathSc.split(TsFileConstant.PATH_SEPARATOR_NO_REGEX), TsFileConstant.PATH_SEPARATOR);
       if (sc.size() <= 1) {
         device = "";
         fullPath = measurement = sc.toString();

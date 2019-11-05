@@ -39,7 +39,6 @@ import org.apache.iotdb.db.exception.PathErrorException;
 import org.apache.iotdb.db.exception.ProcessorException;
 import org.apache.iotdb.db.exception.StartupException;
 import org.apache.iotdb.db.exception.StorageEngineException;
-import org.apache.iotdb.db.exception.StorageGroupException;
 import org.apache.iotdb.db.exception.qp.QueryProcessorException;
 import org.apache.iotdb.db.metadata.MManager;
 import org.apache.iotdb.db.metadata.MNode;
@@ -98,7 +97,7 @@ public class TTLTest {
   }
 
   @Test
-  public void testSetMetaTTL() throws IOException, PathErrorException, StorageGroupException {
+  public void testSetMetaTTL() throws IOException, PathErrorException {
     // exception is expected when setting ttl to a non-exist storage group
     boolean caught = false;
     try {
@@ -110,11 +109,11 @@ public class TTLTest {
 
     // normally set ttl
     MManager.getInstance().setTTL(sg1, ttl);
-    MNode mNode = MManager.getInstance().getNodeByPathWithCheck(sg1);
+    MNode mNode = MManager.getInstance().getNodeInStorageGroup(sg1);
     assertEquals(ttl, mNode.getDataTTL());
 
     // default ttl
-    mNode = MManager.getInstance().getNodeByPathWithCheck(sg2);
+    mNode = MManager.getInstance().getNodeInStorageGroup(sg2);
     assertEquals(Long.MAX_VALUE, mNode.getDataTTL());
   }
 
@@ -282,12 +281,12 @@ public class TTLTest {
     QueryProcessExecutor executor = new QueryProcessExecutor();
     QueryDataSet queryDataSet = executor.processQuery(plan, EnvironmentUtils.TEST_QUERY_CONTEXT);
     RowRecord rowRecord = queryDataSet.next();
-    assertEquals(sg2, rowRecord.getFields().get(0).getStringValue());
-    assertEquals("null", rowRecord.getFields().get(1).getStringValue());
-
-    rowRecord = queryDataSet.next();
     assertEquals(sg1, rowRecord.getFields().get(0).getStringValue());
     assertEquals(ttl, rowRecord.getFields().get(1).getLongV());
+
+    rowRecord = queryDataSet.next();
+    assertEquals(sg2, rowRecord.getFields().get(0).getStringValue());
+    assertEquals("null", rowRecord.getFields().get(1).getStringValue());
   }
 
   @Test

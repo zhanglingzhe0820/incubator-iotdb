@@ -62,9 +62,10 @@ import org.slf4j.LoggerFactory;
  */
 public class MManager {
 
+  public static final String METADATA_LOG = "mlog.txt";
   private static final Logger logger = LoggerFactory.getLogger(MManager.class);
   private static final String DOUB_SEPARATOR = "\\.";
-  private static final String ROOT_NAME = MetadataConstant.ROOT;
+  private static final String ROOT_NAME = IoTDBConstant.PATH_ROOT;
   private static final String TIME_SERIES_TREE_HEADER = "===  Timeseries Tree  ===\n\n";
 
   // the lock for read/insert
@@ -96,7 +97,7 @@ public class MManager {
         logger.info("create system folder {} failed.", systemFolder.getAbsolutePath());
       }
     }
-    logFilePath = schemaDir + File.separator + MetadataConstant.METADATA_LOG;
+    logFilePath = schemaDir + File.separator + METADATA_LOG;
     writeToLog = false;
 
     int cacheSize = IoTDBDescriptor.getInstance().getConfig().getmManagerCacheSize();
@@ -121,8 +122,8 @@ public class MManager {
       @Override
       public MNode loadObjectByKey(String key) throws CacheException {
         try {
-          return getNodeByPathWithCheck(key);
-        } catch (PathErrorException | StorageGroupException e) {
+          return getNodeInStorageGroup(key);
+        } catch (PathErrorException e) {
           throw new CacheException(e);
         }
       }
@@ -373,7 +374,7 @@ public class MManager {
   }
 
   /**
-   * path will be added to mgraph with no check
+   * path will be added to MGraph with no check
    */
   private void addPathToMTreeInternal(String path, TSDataType dataType, TSEncoding encoding,
       CompressionType compressor, Map<String, String> props)
@@ -778,82 +779,11 @@ public class MManager {
   }
 
   /**
-   * function for getting series type.
-   */
-  public TSDataType getSeriesType(MNode node, String fullPath) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return getSchemaForOnePath(node, fullPath).getType();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting series type with check.
-   */
-  TSDataType getSeriesTypeWithCheck(MNode node, String fullPath) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return getSchemaForOnePathWithCheck(node, fullPath).getType();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * unction for getting series type with check.
-   */
-  TSDataType getSeriesTypeWithCheck(String fullPath) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return getSchemaForOnePathWithCheck(fullPath).getType();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * Get all device type in current Metadata Tree.
-   *
-   * @return a HashMap contains all distinct device type separated by device Type
-   */
-  // future feature
-  @SuppressWarnings("unused")
-  public Map<String, List<MeasurementSchema>> getSchemaForAllType() throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getSchemaForAllType();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * Get the full Metadata info.
-   *
-   * @return A {@code Metadata} instance which stores all metadata info
-   */
-  public Metadata getMetadata() throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getMetadata();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
    * Get the full devices info.
    *
    * @return A HashSet instance which stores all devices info
    */
-  public Set<String> getAllDevices() throws SQLException {
+  public List<String> getAllDevices() {
 
     lock.readLock().lock();
     try {
@@ -879,21 +809,6 @@ public class MManager {
   }
 
   /**
-   * @param path A seriesPath represented one Delta object
-   * @return a list contains all column schema
-   * @deprecated Get all MeasurementSchemas for given delta object type.
-   */
-  @Deprecated
-  public List<MeasurementSchema> getSchemaForOneType(String path) throws PathErrorException {
-    lock.readLock().lock();
-    try {
-      return mgraph.getSchemaForOneType(path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
    * Get all MeasurementSchemas for the storage group seriesPath.
    */
   public List<MeasurementSchema> getSchemaForStorageGroup(String path) {
@@ -912,7 +827,7 @@ public class MManager {
 
     lock.readLock().lock();
     try {
-      return mgraph.getSchemaMapForOneFileNode(path);
+      return mgraph.getSchemaMapInStorageGroup(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -925,24 +840,7 @@ public class MManager {
 
     lock.readLock().lock();
     try {
-      return mgraph.getNumSchemaMapForOneFileNode(path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * Calculate the count of storage-group nodes included in given seriesPath.
-   *
-   * @return The total count of storage-group nodes.
-   */
-  // future feature
-  @SuppressWarnings("unused")
-  public int getFileCountForOneType(String path) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getFileCountForOneType(path);
+      return mgraph.getNumSchemaMapInStorageGroup(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -1075,22 +973,10 @@ public class MManager {
   /**
    * function for getting all timeseries paths under the given seriesPath.
    */
-  public List<List<String>> getShowTimeseriesPath(String path) throws PathErrorException {
+  public List<List<String>> getTimeseriesInfo(String path) throws PathErrorException {
     lock.readLock().lock();
     try {
-      return mgraph.getShowTimeseriesPath(path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting leaf node path in the next level of given seriesPath.
-   */
-  List<String> getLeafNodePathInNextLevel(String path) throws PathErrorException {
-    lock.readLock().lock();
-    try {
-      return mgraph.getLeafNodePathInNextLevel(path);
+      return mgraph.getTimeseriesInfo(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -1104,31 +990,6 @@ public class MManager {
     lock.readLock().lock();
     try {
       return mgraph.pathExist(path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for checking whether the path exists.
-   */
-  boolean pathExist(MNode node, String path) {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.pathExist(node, path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting node by path.
-   */
-  MNode getNodeByPath(String path) throws PathErrorException {
-    lock.readLock().lock();
-    try {
-      return mgraph.getNodeByPath(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -1171,12 +1032,13 @@ public class MManager {
   }
 
   /**
-   * function for getting node by path with check.
+   * function for getting a node in a storage group by path. If the path does not belong to a
+   * storage group, PathErrorException will rise.
    */
-  public MNode getNodeByPathWithCheck(String path) throws PathErrorException, StorageGroupException {
+  public MNode getNodeInStorageGroup(String path) throws PathErrorException {
     lock.readLock().lock();
     try {
-      return mgraph.getNodeByPathWithCheck(path);
+      return mgraph.getNodeInStorageGroup(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -1191,46 +1053,6 @@ public class MManager {
     lock.readLock().lock();
     try {
       return mgraph.getSchemaForOnePath(path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting schema for one path.
-   */
-  private MeasurementSchema getSchemaForOnePath(MNode node, String path) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getSchemaForOnePath(node, path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting schema for one path with check.
-   */
-  private MeasurementSchema getSchemaForOnePathWithCheck(MNode node, String path)
-      throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getSchemaForOnePathWithCheck(node, path);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /**
-   * function for getting schema for one path with check.
-   */
-  private MeasurementSchema getSchemaForOnePathWithCheck(String path) throws PathErrorException {
-
-    lock.readLock().lock();
-    try {
-      return mgraph.getSchemaForOnePathWithCheck(path);
     } finally {
       lock.readLock().unlock();
     }
@@ -1316,7 +1138,7 @@ public class MManager {
    */
   String getStorageGroupNameByAutoLevel(String fullPath, int level)
       throws PathErrorException {
-    String[] nodeNames = MetaUtils.getNodeNames(fullPath, DOUB_SEPARATOR);
+    String[] nodeNames = MetaUtils.getNodeNames(fullPath);
     StringBuilder storageGroupName = new StringBuilder(nodeNames[0]);
     if (nodeNames.length < level || !storageGroupName.toString().equals(ROOT_NAME)) {
       throw new PathErrorException(String.format("Timeseries %s is not right.", fullPath));
@@ -1399,7 +1221,7 @@ public class MManager {
   public void setTTL(String storageGroup, long dataTTL) throws PathErrorException, IOException {
     lock.writeLock().lock();
     try {
-      MNode sgNode = getNodeByPath(storageGroup);
+      MNode sgNode = getNodeInStorageGroup(storageGroup);
       if (!sgNode.isStorageGroup()) {
         throw new NotStorageGroupException(storageGroup);
       }

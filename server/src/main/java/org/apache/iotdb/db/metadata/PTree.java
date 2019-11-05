@@ -18,6 +18,8 @@
  */
 package org.apache.iotdb.db.metadata;
 
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.PATH_SEPARATOR;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,17 +47,12 @@ public class PTree implements Serializable {
   /**
    * Add a seriesPath to current PTree
    *
-   * @return The count of new added {@code PNode} TODO: unused
    * @throws PathErrorException
    */
-  int addPath(String path) throws PathErrorException {
-    int addCount = 0;
-    if (getRoot() == null) {
-      throw new PathErrorException("Root Node is null, Please initialize root first");
-    }
-    String[] nodes = MetaUtils.getNodeNames(path, "\\.");
+  void addPath(String[] nodes) throws PathErrorException {
     if (nodes.length <= 1 || !nodes[0].equals(getRoot().getName())) {
-      throw new PathErrorException("Input seriesPath not exist. Path: " + path);
+      throw new PathErrorException("Input seriesPath not exist. Path: "
+          + String.join(PATH_SEPARATOR, nodes));
     }
 
     PNode cur = getRoot();
@@ -63,18 +60,16 @@ public class PTree implements Serializable {
     for (i = 1; i < nodes.length - 1; i++) {
       if (!cur.hasChild(nodes[i])) {
         cur.addChild(nodes[i], new PNode(nodes[i], cur, false));
-        addCount++;
       }
       cur = cur.getChild(nodes[i]);
     }
     if (cur.hasChild(nodes[i])) {
-      throw new PathErrorException("Path already exists. Path: " + path);
+      throw new PathErrorException("Path already exists. Path: "
+          + String.join(PATH_SEPARATOR, nodes));
     } else {
       PNode node = new PNode(nodes[i], cur, true);
       cur.addChild(node.getName(), node);
-      addCount++;
     }
-    return addCount;
   }
 
   /**
@@ -83,7 +78,7 @@ public class PTree implements Serializable {
    * @throws PathErrorException
    */
   void deletePath(String path) throws PathErrorException {
-    String[] nodes = MetaUtils.getNodeNames(path, "\\.");
+    String[] nodes = MetaUtils.getNodeNames(path);
     if (nodes.length == 0 || !nodes[0].equals(getRoot().getName())) {
       throw new PathErrorException("Path not correct. Path:" + path);
     }
@@ -103,10 +98,9 @@ public class PTree implements Serializable {
    *
    * @throws PathErrorException
    */
-  void linkMNode(String pTreePath, String mTreePath) throws PathErrorException {
+  void linkMNode(String[] pTreeNodes, String mTreePath) throws PathErrorException {
     List<String> paths = mTree.getAllPathInList(mTreePath);
-    String[] nodes = MetaUtils.getNodeNames(pTreePath, "\\.");
-    PNode leaf = getLeaf(getRoot(), nodes, 0);
+    PNode leaf = getLeaf(getRoot(), pTreeNodes, 0);
     for (String p : paths) {
       leaf.linkMPath(p);
     }
@@ -117,10 +111,9 @@ public class PTree implements Serializable {
    *
    * @throws PathErrorException
    */
-  void unlinkMNode(String pTreePath, String mTreePath) throws PathErrorException {
+  void unlinkMNode(String[] pTreeNodes, String mTreePath) throws PathErrorException {
     List<String> paths = mTree.getAllPathInList(mTreePath);
-    String[] nodes = MetaUtils.getNodeNames(pTreePath, "\\.");
-    PNode leaf = getLeaf(getRoot(), nodes, 0);
+    PNode leaf = getLeaf(getRoot(), pTreeNodes, 0);
     for (String p : paths) {
       leaf.unlinkMPath(p);
     }
@@ -153,7 +146,7 @@ public class PTree implements Serializable {
    */
   HashMap<String, List<String>> getAllLinkedPath(String path)
       throws PathErrorException {
-    String[] nodes = MetaUtils.getNodeNames(path, "\\.");
+    String[] nodes = MetaUtils.getNodeNames(path);
     PNode leaf = getLeaf(getRoot(), nodes, 0);
     HashMap<String, List<String>> res = new HashMap<>();
 

@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -179,7 +178,7 @@ public class StorageEngine implements IService {
                 storageGroupName, Thread.currentThread().getId());
             processor = new StorageGroupProcessor(systemDir, storageGroupName);
             processor.setDataTTL(
-                MManager.getInstance().getNodeByPathWithCheck(storageGroupName).getDataTTL());
+                MManager.getInstance().getNodeInStorageGroup(storageGroupName).getDataTTL());
             processorMap.put(storageGroupName, processor);
           }
         }

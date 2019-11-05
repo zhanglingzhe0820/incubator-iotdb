@@ -18,27 +18,69 @@
  */
 package org.apache.iotdb.db.metadata;
 
-public class MetaUtils {
-  public static String[] getNodeNames(String path, String separator) {
-    String[] nodeNames;
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.PATH_SEPARATOR_NO_REGEX;
+
+import org.apache.iotdb.db.exception.PathErrorException;
+
+class MetaUtils {
+
+  private MetaUtils() {
+    // util class
+  }
+
+  static String[] getNodeNames(String path) throws PathErrorException {
     path = path.trim();
-    if (path.contains("\"") || path.contains("\'")) {
-      String[] deviceAndMeasurement;
-      if (path.contains("\"")) {
-        deviceAndMeasurement = path.split("\"");
-      } else {
-        deviceAndMeasurement = path.split("\'");
+
+    int firstSingleQuotePos = -1;
+    int firstDoubleQuotePos = -1;
+    for (int i = 0; i < path.length(); i++) {
+      if (firstSingleQuotePos == -1 && path.charAt(i) == '\'') {
+        firstSingleQuotePos = i;
       }
-      String device = deviceAndMeasurement[0];
-      String measurement = deviceAndMeasurement[1];
-      String[] deviceNodeName = device.split(separator);
-      int nodeNumber = deviceNodeName.length + 1;
-      nodeNames = new String[nodeNumber];
-      System.arraycopy(deviceNodeName, 0, nodeNames, 0, nodeNumber - 1);
-      nodeNames[nodeNumber - 1] = measurement;
-    } else {
-      nodeNames = path.split(separator);
+      if (firstDoubleQuotePos == -1 && path.charAt(i) == '\"') {
+        firstDoubleQuotePos = i;
+      }
     }
+
+    if (firstDoubleQuotePos != -1 && firstSingleQuotePos != -1) {
+      throw new PathErrorException("Path contains both \" and \': " + path);
+    }
+
+    return getNodeNames(path, firstSingleQuotePos, firstDoubleQuotePos);
+  }
+
+  private static String[] getNodeNames(String path, int firstSingleQuotePos,
+      int firstDoubleQuotePos) throws PathErrorException {
+    String[] nodeNames;
+
+    if (firstSingleQuotePos != -1 && path.charAt(path.length() - 1) != '\'' ||
+        firstDoubleQuotePos != -1 && path.charAt(path.length() - 1) != '\"') {
+      throw new PathErrorException("Path contains but not ends with \' or \": " + path);
+    } else if (firstDoubleQuotePos == -1 && firstSingleQuotePos == -1) {
+      return path.split(PATH_SEPARATOR_NO_REGEX);
+    }
+
+    String device = null;
+    String measurement;
+    int quotePos = firstDoubleQuotePos != -1 ? firstDoubleQuotePos :
+        firstSingleQuotePos;
+    if (quotePos == 0) {
+      measurement = path;
+    } else {
+      device = path.substring(0, quotePos - 1);
+      measurement = path.substring(quotePos + 1, path.length() - 1);
+    }
+
+    if (device == null) {
+      nodeNames = new String[]{measurement};
+    } else {
+      String[] deviceNodeNames = device.split(PATH_SEPARATOR_NO_REGEX);
+      int nodeNumber = deviceNodeNames.length + 1;
+      nodeNames = new String[nodeNumber];
+      System.arraycopy(deviceNodeNames, 0, nodeNames, 0, nodeNumber - 1);
+      nodeNames[nodeNumber - 1] = measurement;
+    }
+
     return nodeNames;
   }
 }

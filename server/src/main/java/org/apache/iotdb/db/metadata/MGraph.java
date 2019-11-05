@@ -18,18 +18,14 @@
  */
 package org.apache.iotdb.db.metadata;
 
-import java.io.Serializable;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import org.apache.iotdb.db.conf.IoTDBConstant;
 import org.apache.iotdb.db.exception.MetadataErrorException;
 import org.apache.iotdb.db.exception.PathErrorException;
 import org.apache.iotdb.db.exception.StorageGroupException;
-import org.apache.iotdb.tsfile.common.conf.TSFileDescriptor;
 import org.apache.iotdb.tsfile.file.metadata.enums.CompressionType;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
@@ -38,10 +34,9 @@ import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 /**
  * Metadata Graph consists of one {@code MTree} and several {@code PTree}.
  */
-public class MGraph implements Serializable {
+public class MGraph {
 
-  private static final long serialVersionUID = 8214849219614352834L;
-  private static final String DOUB_SEPARATOR = "\\.";
+  private static final String ESCAPED_SEPARATOR = "\\.";
   private static final String TIME_SERIES_INCORRECT = "Timeseries's root is not Correct. RootName: ";
   private MTree mtree;
   private HashMap<String, PTree> ptreeMap;
@@ -55,23 +50,11 @@ public class MGraph implements Serializable {
    * Add a {@code PTree} to current {@code MGraph}.
    */
   void addAPTree(String ptreeRootName) throws MetadataErrorException {
-    if (MetadataConstant.ROOT.equalsIgnoreCase(ptreeRootName)) {
+    if (IoTDBConstant.PATH_ROOT.equalsIgnoreCase(ptreeRootName)) {
       throw new MetadataErrorException("Property Tree's root name should not be 'root'");
     }
     PTree ptree = new PTree(ptreeRootName, mtree);
     ptreeMap.put(ptreeRootName, ptree);
-  }
-
-  /**
-   * this is just for compatibility
-   */
-  public void addPathToMTree(String path, String dataType, String encoding)
-      throws PathErrorException {
-    TSDataType tsDataType = TSDataType.valueOf(dataType);
-    TSEncoding tsEncoding = TSEncoding.valueOf(encoding);
-    CompressionType compressionType = CompressionType.valueOf(TSFileDescriptor.getInstance().getConfig().getCompressor());
-    addPathToMTree(path, tsDataType, tsEncoding, compressionType,
-        Collections.emptyMap());
   }
 
   /**
@@ -81,11 +64,8 @@ public class MGraph implements Serializable {
    */
   public void addPathToMTree(String path, TSDataType dataType, TSEncoding encoding,
       CompressionType compressor, Map<String, String> props) throws PathErrorException {
-    String[] nodes = MetaUtils.getNodeNames(path, DOUB_SEPARATOR);
-    if (nodes.length == 0) {
-      throw new PathErrorException("Timeseries is null");
-    }
-    mtree.addTimeseriesPath(path, dataType, encoding, compressor, props);
+    String[] nodes = MetaUtils.getNodeNames(path);
+    mtree.addTimeseriesPath(nodes, dataType, encoding, compressor, props);
   }
 
   /**
@@ -99,14 +79,12 @@ public class MGraph implements Serializable {
    * Add a seriesPath to {@code PTree}.
    */
   void addPathToPTree(String path) throws PathErrorException {
-    String[] nodes = MetaUtils.getNodeNames(path, DOUB_SEPARATOR);
-    if (nodes.length == 0) {
-      throw new PathErrorException("Timeseries is null.");
-    }
+    String[] nodes = MetaUtils.getNodeNames(path);
+
     String rootName = nodes[0];
     if (ptreeMap.containsKey(rootName)) {
       PTree ptree = ptreeMap.get(rootName);
-      ptree.addPath(path);
+      ptree.addPath(nodes);
     } else {
       throw new PathErrorException(TIME_SERIES_INCORRECT + rootName);
     }
@@ -118,10 +96,8 @@ public class MGraph implements Serializable {
    * @param path a seriesPath belongs to MTree or PTree
    */
   String deletePath(String path) throws PathErrorException {
-    String[] nodes = MetaUtils.getNodeNames(path, DOUB_SEPARATOR);
-    if (nodes.length == 0) {
-      throw new PathErrorException("Timeseries is null");
-    }
+    String[] nodes = MetaUtils.getNodeNames(path);
+
     String rootName = nodes[0];
     if (mtree.getRoot().getName().equals(rootName)) {
       return mtree.deletePath(path);
@@ -137,24 +113,26 @@ public class MGraph implements Serializable {
   /**
    * Link a {@code MNode} to a {@code PNode} in current PTree.
    */
-  void linkMNodeToPTree(String path, String mpath) throws PathErrorException {
-    String ptreeName = MetaUtils.getNodeNames(path, DOUB_SEPARATOR)[0];
-    if (!ptreeMap.containsKey(ptreeName)) {
-      throw new PathErrorException("Error: PTree Path Not Correct. Path: " + path);
+  void linkMNodeToPTree(String pPath, String mPath) throws PathErrorException {
+    String[] pNodes = MetaUtils.getNodeNames(pPath);
+    String pRootName = pNodes[0];
+    if (!ptreeMap.containsKey(pRootName)) {
+      throw new PathErrorException("Error: PTree Path Not Correct. Path: " + pPath);
     } else {
-      ptreeMap.get(ptreeName).linkMNode(path, mpath);
+      ptreeMap.get(pRootName).linkMNode(pNodes, mPath);
     }
   }
 
   /**
    * Unlink a {@code MNode} from a {@code PNode} in current PTree.
    */
-  void unlinkMNodeFromPTree(String path, String mpath) throws PathErrorException {
-    String ptreeName = MetaUtils.getNodeNames(path, DOUB_SEPARATOR)[0];
-    if (!ptreeMap.containsKey(ptreeName)) {
-      throw new PathErrorException("Error: PTree Path Not Correct. Path: " + path);
+  void unlinkMNodeFromPTree(String pPath, String mPath) throws PathErrorException {
+    String[] pNodes = MetaUtils.getNodeNames(pPath);
+    String pRootName = pNodes[0];
+    if (!ptreeMap.containsKey(pRootName)) {
+      throw new PathErrorException("Error: PTree Path Not Correct. Path: " + pPath);
     } else {
-      ptreeMap.get(ptreeName).unlinkMNode(path, mpath);
+      ptreeMap.get(pRootName).unlinkMNode(pNodes, mPath);
     }
   }
 
@@ -175,8 +153,9 @@ public class MGraph implements Serializable {
   void deleteStorageGroup(String path) throws PathErrorException {
     mtree.deleteStorageGroup(path);
   }
+
   /**
-   * Check whether the input path is storage group for current Metadata Tree or not.
+   * Check whether the input path is a storage group in current Metadata Tree or not.
    *
    * @param path Format: root.node.(node)*
    * @apiNote :for cluster
@@ -191,13 +170,14 @@ public class MGraph implements Serializable {
    * Regular expression in this method is formed by the amalgamation of seriesPath and the character
    * '*'.
    *
-   * @return A HashMap whose Keys are separated by the storage file name.
+   * @return A HashMap whose Keys are the storage group names.
    */
   HashMap<String, List<String>> getAllPathGroupByStorageGroup(String path)
       throws PathErrorException {
-    String rootName = MetaUtils.getNodeNames(path, DOUB_SEPARATOR)[0];
+    String[] nodes = MetaUtils.getNodeNames(path);
+    String rootName = nodes[0];
     if (mtree.getRoot().getName().equals(rootName)) {
-      return mtree.getAllPath(path);
+      return mtree.getAllPath(nodes);
     } else if (ptreeMap.containsKey(rootName)) {
       PTree ptree = ptreeMap.get(rootName);
       return ptree.getAllLinkedPath(path);
@@ -211,11 +191,14 @@ public class MGraph implements Serializable {
 
   /**
    * function for getting all timeseries paths under the given seriesPath.
+   * @return each list in the returned list consists of 4 strings: full path, storage group, data
+   *   type and encoding of a timeseries
    */
-  List<List<String>> getShowTimeseriesPath(String path) throws PathErrorException {
-    String rootName = MetaUtils.getNodeNames(path, DOUB_SEPARATOR)[0];
+  List<List<String>> getTimeseriesInfo(String path) throws PathErrorException {
+    String[] nodes = MetaUtils.getNodeNames(path);
+    String rootName = nodes[0];
     if (mtree.getRoot().getName().equals(rootName)) {
-      return mtree.getShowTimeseriesPath(path);
+      return mtree.getTimeseriesInfo(nodes);
     } else if (ptreeMap.containsKey(rootName)) {
       throw new PathErrorException(
           "PTree is not involved in the execution of the sql 'show timeseries " + path + "'");
@@ -223,56 +206,16 @@ public class MGraph implements Serializable {
     throw new PathErrorException(TIME_SERIES_INCORRECT + rootName);
   }
 
-  /**
-   * Get all deviceId type in current Metadata Tree.
-   *
-   * @return a HashMap contains all distinct deviceId type separated by deviceId Type
-   */
-  Map<String, List<MeasurementSchema>> getSchemaForAllType() throws PathErrorException {
-    Map<String, List<MeasurementSchema>> res = new HashMap<>();
-    List<String> typeList = mtree.getAllType();
-    for (String type : typeList) {
-      res.put(type, getSchemaForOneType("root." + type));
-    }
-    return res;
-  }
-
-  private ArrayList<String> getDeviceForOneType(String type) throws PathErrorException {
-    return mtree.getDeviceForOneType(type);
-  }
-
-  /**
-   * Get all delta objects group by deviceId type.
-   */
-  private Map<String, List<String>> getDeviceForAllType() throws PathErrorException {
-    Map<String, List<String>> res = new HashMap<>();
-    ArrayList<String> types = mtree.getAllType();
-    for (String type : types) {
-      res.put(type, getDeviceForOneType(type));
-    }
-    return res;
-  }
-
-  /**
-   * Get the full Metadata info.
-   *
-   * @return A {@code Metadata} instance which stores all metadata info
-   */
-  public Metadata getMetadata() throws PathErrorException {
-    Map<String, List<String>> deviceIdMap = getDeviceForAllType();
-    return new Metadata(deviceIdMap);
-  }
-
   List<String> getAllStorageGroupNames() {
     return mtree.getAllStorageGroupList();
   }
 
-  Set<String> getAllDevices() throws SQLException {
+  List<String> getAllDevices() {
     return mtree.getAllDevices();
   }
 
-  List<String> getNodesList(String schemaPattern, int nodeLevel) throws SQLException {
-    return mtree.getNodesList(schemaPattern, nodeLevel);
+  List<String> getNodesList(String prefixPath, int nodeLevel) throws SQLException {
+    return mtree.getNodesList(prefixPath, nodeLevel);
   }
 
   List<String> getLeafNodePathInNextLevel(String path) throws PathErrorException {
@@ -280,40 +223,21 @@ public class MGraph implements Serializable {
   }
 
   /**
-   * Get all ColumnSchemas for given delta object type.
-   *
-   * @param path A seriesPath represented one Delta object
-   * @return a list contains all column schema
-   */
-  ArrayList<MeasurementSchema> getSchemaForOneType(String path) throws PathErrorException {
-    return mtree.getSchemaForOneType(path);
-  }
-
-  /**
    * Get all ColumnSchemas for the storage group seriesPath.
    *
    * @param path the Path in a storage group
-   * @return ArrayList<'   ColumnSchema   '> The list of the schema
+   * @return List<'   ColumnSchema   '> The list of the schema
    */
-  ArrayList<MeasurementSchema> getSchemaInOneStorageGroup(String path) {
+  List<MeasurementSchema> getSchemaInOneStorageGroup(String path) {
     return mtree.getSchemaForOneStorageGroup(path);
   }
 
-  Map<String, MeasurementSchema> getSchemaMapForOneFileNode(String path) {
+  Map<String, MeasurementSchema> getSchemaMapInStorageGroup(String path) {
     return mtree.getSchemaMapForOneStorageGroup(path);
   }
 
-  Map<String, Integer> getNumSchemaMapForOneFileNode(String path) {
+  Map<String, Integer> getNumSchemaMapInStorageGroup(String path) {
     return mtree.getNumSchemaMapForOneFileNode(path);
-  }
-
-  /**
-   * Calculate the count of storage-group nodes included in given seriesPath.
-   *
-   * @return The total count of storage-group nodes.
-   */
-  int getFileCountForOneType(String path) throws PathErrorException {
-    return mtree.getFileCountForOneType(path);
   }
 
   /**
@@ -346,16 +270,14 @@ public class MGraph implements Serializable {
     return mtree.isPathExist(path);
   }
 
-  boolean pathExist(MNode node, String path) {
-    return mtree.isPathExist(node, path);
-  }
-
-  MNode getNodeByPath(String path) throws PathErrorException {
-    return mtree.getNode(path);
-  }
-
-  MNode getNodeByPathWithCheck(String path) throws PathErrorException, StorageGroupException {
-      return mtree.getNodeByPathWithStorageGroupCheck(path);
+  /**
+   *
+   * @param path
+   * @return an MNode corresponding to path
+   * @throws PathErrorException if the path does not exist or does not belong to a storage group.
+   */
+  MNode getNodeInStorageGroup(String path) throws PathErrorException {
+      return mtree.getNodeInStorageGroup(path);
   }
 
   /**
@@ -364,19 +286,6 @@ public class MGraph implements Serializable {
    */
   MeasurementSchema getSchemaForOnePath(String path) throws PathErrorException {
     return mtree.getSchemaForOnePath(path);
-  }
-
-  MeasurementSchema getSchemaForOnePath(MNode node, String path) throws PathErrorException {
-    return mtree.getSchemaForOnePath(node, path);
-  }
-
-  MeasurementSchema getSchemaForOnePathWithCheck(MNode node, String path)
-      throws PathErrorException {
-    return mtree.getSchemaForOnePathWithCheck(node, path);
-  }
-
-  MeasurementSchema getSchemaForOnePathWithCheck(String path) throws PathErrorException {
-    return mtree.getSchemaForOnePathWithCheck(path);
   }
 
   /**
@@ -388,21 +297,13 @@ public class MGraph implements Serializable {
   }
 
   /**
-   * combine multiple metadata in string format
-   */
-  static String combineMetadataInStrings(String[] metadataArray) {
-    return MTree.combineMetadataInStrings(metadataArray);
-  }
-
-  /**
    * @return storage group name -> the series number
    */
-  Map<String, Integer> countSeriesNumberInEachStorageGroup() throws PathErrorException {
+  Map<String, Integer> countSeriesNumberInEachStorageGroup() {
     Map<String, Integer> res = new HashMap<>();
-    List<String> storageGroups = this.getAllStorageGroupNames();
-    for (String sg : storageGroups) {
-      MNode node = mtree.getNode(sg);
-      res.put(sg, node.getLeafCount());
+    List<MNode> storageGroups = getAllStorageGroupNodes();
+    for (MNode sg : storageGroups) {
+      res.put(sg.getFullPath(), sg.getLeafCount());
     }
     return res;
   }

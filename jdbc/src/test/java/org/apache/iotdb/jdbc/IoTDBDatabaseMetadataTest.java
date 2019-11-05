@@ -271,7 +271,7 @@ public class IoTDBDatabaseMetadataTest {
   @SuppressWarnings("resource")
   @Test
   public void device() {
-    Set<String> devicesSet = new HashSet<>();
+    List<String> devicesSet = new ArrayList<>();
     devicesSet.add("root.vehicle.d0");
 
     when(fetchMetadataResp.getDevices()).thenReturn(devicesSet);
@@ -332,7 +332,7 @@ public class IoTDBDatabaseMetadataTest {
       }
     });
 
-    when(fetchMetadataResp.getTimeseriesList()).thenReturn(tsList);
+    when(fetchMetadataResp.getTimeseriesInfoList()).thenReturn(tsList);
 
     String standard = "Timeseries,Storage Group,DataType,Encoding,\n"
         + "root.vehicle.d0.s0,root.vehicle,INT32,RLE,\n"
@@ -376,7 +376,7 @@ public class IoTDBDatabaseMetadataTest {
       }
     });
 
-    when(fetchMetadataResp.getTimeseriesList()).thenReturn(tsList);
+    when(fetchMetadataResp.getTimeseriesInfoList()).thenReturn(tsList);
 
     String standard = "DataType,\n" + "INT32,\n";
     try (ResultSet resultSet = databaseMetaData
@@ -403,9 +403,9 @@ public class IoTDBDatabaseMetadataTest {
   @SuppressWarnings("resource")
   @Test
   public void ShowStorageGroup() {
-    Set<String> sgSet = new HashSet<>();
-    sgSet.add("root.vehicle");
-    when(fetchMetadataResp.getStorageGroups()).thenReturn(sgSet);
+    List<String> sgList = new ArrayList<>();
+    sgList.add("root.vehicle");
+    when(fetchMetadataResp.getStorageGroups()).thenReturn(sgList);
 
     String standard = "Storage Group,\n" + "root.vehicle,\n";
     try (ResultSet resultSet = databaseMetaData

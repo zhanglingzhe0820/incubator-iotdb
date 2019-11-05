@@ -306,24 +306,19 @@ public class TSServiceImpl implements TSIService.Iface, ServerContext {
     try {
       switch (req.getType()) {
         case "SHOW_TIMESERIES":
-          String path = req.getColumnPath();
-          List<List<String>> timeseriesList = getTimeSeriesForPath(path);
-          resp.setTimeseriesList(timeseriesList);
+          resp.setTimeseriesInfoList(getTimeSeriesInfo(req.getColumnPath()));
           status = new TSStatus(getStatus(TSStatusCode.SUCCESS_STATUS));
           break;
         case "SHOW_STORAGE_GROUP":
-          Set<String> storageGroups = new HashSet<>(getAllStorageGroups());
-          resp.setStorageGroups(storageGroups);
+          resp.setStorageGroups(getAllStorageGroups());
           status = new TSStatus(getStatus(TSStatusCode.SUCCESS_STATUS));
           break;
         case "METADATA_IN_JSON":
-          String metadataInJson = getMetadataInString();
-          resp.setMetadataInJson(metadataInJson);
+          resp.setMetadataInJson(getMetadataInString());
           status = new TSStatus(getStatus(TSStatusCode.SUCCESS_STATUS));
           break;
         case "SHOW_DEVICES":
-          Set<String> devices = getAllDevices();
-          resp.setDevices(devices);
+          resp.setDevices(getAllDevices());
           status = new TSStatus(getStatus(TSStatusCode.SUCCESS_STATUS));
           break;
         case "COLUMN":
@@ -380,13 +375,13 @@ public class TSServiceImpl implements TSIService.Iface, ServerContext {
     return MManager.getInstance().getAllStorageGroupNames();
   }
 
-  private Set<String> getAllDevices() throws SQLException {
+  private List<String> getAllDevices() {
     return MManager.getInstance().getAllDevices();
   }
 
-  private List<List<String>> getTimeSeriesForPath(String path)
+  private List<List<String>> getTimeSeriesInfo(String path)
       throws PathErrorException {
-    return MManager.getInstance().getShowTimeseriesPath(path);
+    return MManager.getInstance().getTimeseriesInfo(path);
   }
 
   private String getMetadataInString() {

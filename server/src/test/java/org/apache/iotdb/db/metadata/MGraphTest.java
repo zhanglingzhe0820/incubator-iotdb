@@ -20,9 +20,14 @@ package org.apache.iotdb.db.metadata;
 
 import static org.junit.Assert.*;
 
+import java.util.Collections;
 import org.apache.iotdb.db.exception.PathErrorException;
 import org.apache.iotdb.db.exception.StorageGroupException;
 import org.apache.iotdb.db.utils.EnvironmentUtils;
+import org.apache.iotdb.db.utils.SchemaUtils;
+import org.apache.iotdb.tsfile.file.metadata.enums.CompressionType;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,32 +52,42 @@ public class MGraphTest {
     MGraph root3 = new MGraph("root");
     try {
       root.setStorageGroup("root.a.d0");
-      root.addPathToMTree("root.a.d0.s0", "INT32", "RLE");
-      root.addPathToMTree("root.a.d0.s1", "INT32", "RLE");
+      root.addPathToMTree("root.a.d0.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
+      root.addPathToMTree("root.a.d0.s1", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       root.setStorageGroup("root.a.d1");
-      root.addPathToMTree("root.a.d1.s0", "INT32", "RLE");
-      root.addPathToMTree("root.a.d1.s1", "INT32", "RLE");
+      root.addPathToMTree("root.a.d1.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
+      root.addPathToMTree("root.a.d1.s1", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       root.setStorageGroup("root.a.b.d0");
-      root.addPathToMTree("root.a.b.d0.s0", "INT32", "RLE");
+      root.addPathToMTree("root.a.b.d0.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       root1.setStorageGroup("root.a.d0");
-      root1.addPathToMTree("root.a.d0.s0", "INT32", "RLE");
-      root1.addPathToMTree("root.a.d0.s1", "INT32", "RLE");
+      root1.addPathToMTree("root.a.d0.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
+      root1.addPathToMTree("root.a.d0.s1", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       root2.setStorageGroup("root.a.d1");
-      root2.addPathToMTree("root.a.d1.s0", "INT32", "RLE");
-      root2.addPathToMTree("root.a.d1.s1", "INT32", "RLE");
+      root2.addPathToMTree("root.a.d1.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
+      root2.addPathToMTree("root.a.d1.s1", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       root3.setStorageGroup("root.a.b.d0");
-      root3.addPathToMTree("root.a.b.d0.s0", "INT32", "RLE");
+      root3.addPathToMTree("root.a.b.d0.s0", TSDataType.INT32, TSEncoding.RLE,
+          CompressionType.UNCOMPRESSED,Collections.emptyMap());
 
       String[] metadatas = new String[3];
       metadatas[0] = root1.toString();
       metadatas[1] = root2.toString();
       metadatas[2] = root3.toString();
-      assertEquals(MGraph.combineMetadataInStrings(metadatas), root.toString());
+      assertEquals(SchemaUtils.combineMetadataInStrings(metadatas), root.toString());
     } catch (PathErrorException | StorageGroupException e) {
       e.printStackTrace();
       fail(e.getMessage());

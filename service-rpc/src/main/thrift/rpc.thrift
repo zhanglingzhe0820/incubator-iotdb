@@ -179,9 +179,10 @@ struct TSFetchMetadataResp{
 		3: optional list<string> columnsList
 		4: optional i32 timeseriesNum
 		5: optional string dataType
-		6: optional list<list<string>> timeseriesList
-		7: optional set<string> storageGroups
-		8: optional set<string> devices
+		// each list contains the full path, storage group, data type and encoding of a timeseries
+		6: optional list<list<string>> timeseriesInfoList
+		7: optional list<string> storageGroups
+		8: optional list<string> devices
 		9: optional list<string> nodesList
 		10: optional map<string, string> nodeTimeseriesNum
 }

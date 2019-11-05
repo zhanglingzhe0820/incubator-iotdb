@@ -37,7 +37,6 @@ import org.apache.iotdb.db.exception.MetadataErrorException;
 import org.apache.iotdb.db.exception.PathErrorException;
 import org.apache.iotdb.db.exception.SyncDeviceOwnerConflictException;
 import org.apache.iotdb.db.metadata.MManager;
-import org.apache.iotdb.db.metadata.MetadataConstant;
 import org.apache.iotdb.db.sync.conf.SyncConstant;
 import org.apache.iotdb.db.sync.receiver.load.FileLoader;
 import org.apache.iotdb.db.sync.receiver.load.FileLoaderManager;
@@ -222,7 +221,7 @@ public class SyncServiceImpl implements SyncService.Iface {
             .format("MD5 of the sender is differ from MD5 of the receiver of the file %s.",
                 currentFile.get().getAbsolutePath()));
       } else {
-        if (currentFile.get().getName().endsWith(MetadataConstant.METADATA_LOG)) {
+        if (currentFile.get().getName().endsWith(MManager.METADATA_LOG)) {
           loadMetadata();
         } else {
           if (!currentFile.get().getName().endsWith(TsFileResource.RESOURCE_SUFFIX)) {

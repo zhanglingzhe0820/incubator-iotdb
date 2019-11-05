@@ -114,30 +114,16 @@ public class MManagerAdvancedTest {
     Assert.assertNull(
         mmanager.checkPathStorageGroupAndGetDataType("root.vehicle.d0.s100").getDataType());
 
-    MNode node = mmanager.getNodeByPath("root.vehicle.d0");
+    MNode node = mmanager.getNodeInStorageGroup("root.vehicle.d0");
     Assert.assertEquals(TSDataType.INT32, node.getChild("s0").getSchema().getType());
 
     try {
-      mmanager.getNodeByPath("root.vehicle.d100");
+      mmanager.getNodeInStorageGroup("root.vehicle.d100");
       fail();
     } catch (PathErrorException e) {
       // ignore
     }
   }
 
-  @Test
-  public void testGetNextLevelPath()
-      throws PathErrorException, IOException, StorageGroupException {
-    mmanager.addPathToMTree("root.vehicle.d2.s0", "DOUBLE", "RLE");
-    mmanager.addPathToMTree("root.vehicle.d2.s1", "BOOLEAN", "PLAIN");
-    mmanager.addPathToMTree("root.vehicle.d2.s2.g0", "TEXT", "PLAIN");
-    mmanager.addPathToMTree("root.vehicle.d2.s3", "TEXT", "PLAIN");
-
-    List<String> paths = mmanager.getLeafNodePathInNextLevel("root.vehicle.d2");
-    Assert.assertEquals(3, paths.size());
-
-    paths = mmanager.getLeafNodePathInNextLevel("root.vehicle.d2.s2");
-    Assert.assertEquals(1, paths.size());
-  }
 
 }

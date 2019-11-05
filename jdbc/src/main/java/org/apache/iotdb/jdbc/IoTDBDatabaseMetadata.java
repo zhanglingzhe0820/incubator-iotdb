@@ -113,7 +113,7 @@ public class IoTDBDatabaseMetadata implements DatabaseMetaData {
           } catch (IoTDBRPCException e) {
             throw new IoTDBSQLException(e.getMessage(), resp.getStatus());
           }
-          Set<String> showStorageGroup = resp.getStorageGroups();
+          List<String> showStorageGroup = resp.getStorageGroups();
           return new IoTDBMetadataResultSet(showStorageGroup, MetadataType.STORAGE_GROUP);
         } catch (TException e) {
           throw new TException("Connection error when fetching storage group metadata", e);
@@ -128,7 +128,7 @@ public class IoTDBDatabaseMetadata implements DatabaseMetaData {
           } catch (IoTDBRPCException e) {
             throw new IoTDBSQLException(e.getMessage(), resp.getStatus());
           }
-          List<List<String>> showTimeseriesList = resp.getTimeseriesList();
+          List<List<String>> showTimeseriesList = resp.getTimeseriesInfoList();
           return new IoTDBMetadataResultSet(showTimeseriesList, MetadataType.TIMESERIES);
         } catch (TException e) {
           throw new TException("Connection error when fetching timeseries metadata", e);

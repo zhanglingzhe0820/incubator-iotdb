@@ -146,39 +146,12 @@ public class MManagerImproveTest {
   }
 
   private void doPathLoopOnceTest(String deviceId, List<String> measurementList)
-      throws PathErrorException, StorageGroupException {
+      throws StorageGroupException {
     for (String measurement : measurementList) {
       String path = deviceId + "." + measurement;
       List<Path> paths = new ArrayList<>();
       paths.add(new Path(path));
       assertTrue(mManager.checkFileLevel(paths));
-      TSDataType dataType = mManager.getSeriesTypeWithCheck(path);
-      assertEquals(TSDataType.TEXT, dataType);
-    }
-  }
-
-  private void doDealdeviceIdOnceTest(String deviceId, List<String> measurementList)
-      throws PathErrorException, StorageGroupException {
-    boolean isFileLevelChecked;
-    List<Path> tempList = new ArrayList<>();
-    tempList.add(new Path(deviceId));
-    try {
-      isFileLevelChecked = mManager.checkFileLevel(tempList);
-    } catch (StorageGroupException e) {
-      isFileLevelChecked = false;
-    }
-    MNode node = mManager.getNodeByPath(deviceId);
-
-    for (String measurement : measurementList) {
-      assertTrue(mManager.pathExist(node, measurement));
-      List<Path> paths = new ArrayList<>();
-      paths.add(new Path(measurement));
-      if (!isFileLevelChecked) {
-        isFileLevelChecked = mManager.checkFileLevel(node, paths);
-      }
-      assertTrue(isFileLevelChecked);
-      TSDataType dataType = mManager.getSeriesType(node, measurement);
-      assertEquals(TSDataType.TEXT, dataType);
     }
   }
 
@@ -201,15 +174,13 @@ public class MManagerImproveTest {
     } catch (StorageGroupException e) {
       isFileLevelChecked = false;
     }
-    MNode node = mManager.getNodeByPathWithCheck(deviceId);
+    MNode node = mManager.getNodeInStorageGroup(deviceId);
 
     for (String measurement : measurementList) {
       if (!isFileLevelChecked) {
         isFileLevelChecked = mManager.checkFileLevelWithCheck(node, measurement);
       }
       assertTrue(isFileLevelChecked);
-      TSDataType dataType = mManager.getSeriesTypeWithCheck(node, measurement);
-      assertEquals(TSDataType.TEXT, dataType);
     }
   }
 
@@ -252,13 +223,6 @@ public class MManagerImproveTest {
     }
     endTime = System.currentTimeMillis();
     logger.debug("seriesPath loop once:\t" + (endTime - startTime));
-
-    startTime = System.currentTimeMillis();
-    for (String deviceId : deviceIdList) {
-      doDealdeviceIdOnceTest(deviceId, measurementList);
-    }
-    endTime = System.currentTimeMillis();
-    logger.debug("deal deviceId once:\t" + (endTime - startTime));
 
     startTime = System.currentTimeMillis();
     for (String deviceId : deviceIdList) {

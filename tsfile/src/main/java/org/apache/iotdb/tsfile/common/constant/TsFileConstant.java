@@ -25,7 +25,7 @@ public class TsFileConstant {
   public static final String TSFILE_CONF = "TSFILE_CONF";
   public static final String PATH_ROOT = "root";
   public static final String PATH_SEPARATOR = ".";
-  public static final String PATH_SEPARATER_NO_REGEX = "\\.";
+  public static final String PATH_SEPARATOR_NO_REGEX = "\\.";
   public static final String DEFAULT_DELTA_TYPE = "default_delta_type";
 
   private TsFileConstant(){}

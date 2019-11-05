@@ -28,9 +28,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.apache.iotdb.rpc.TSStatusCode;
 import org.apache.iotdb.service.rpc.thrift.TSFetchMetadataReq;
 import org.apache.iotdb.service.rpc.thrift.TSFetchMetadataResp;
@@ -109,7 +107,7 @@ public class IoTDBStatementTest {
             + "root.vehicle.d0.s0,root.vehicle,INT32,RLE,\n"
             + "root.vehicle.d0.s1,root.vehicle,INT64,RLE,\n"
             + "root.vehicle.d0.s2,root.vehicle,FLOAT,RLE,\n";
-    when(fetchMetadataResp.getTimeseriesList()).thenReturn(tsList);
+    when(fetchMetadataResp.getTimeseriesInfoList()).thenReturn(tsList);
     boolean res = stmt.execute("show timeseries");
     assertTrue(res);
     try (ResultSet resultSet = stmt.getResultSet()) {
@@ -166,7 +164,7 @@ public class IoTDBStatementTest {
         + "root.vehicle.d0.s0,root.vehicle,INT32,RLE,\n"
         + "root.vehicle.d0.s1,root.vehicle,INT64,RLE,\n"
         + "root.vehicle.d0.s2,root.vehicle,FLOAT,RLE,\n";
-    when(fetchMetadataResp.getTimeseriesList()).thenReturn(tsList);
+    when(fetchMetadataResp.getTimeseriesInfoList()).thenReturn(tsList);
     boolean res = stmt.execute("show timeseries root.vehicle.d0");
     assertTrue(res);
     try (ResultSet resultSet = stmt.getResultSet()) {
@@ -193,7 +191,7 @@ public class IoTDBStatementTest {
   @Test
   public void testExecuteSQL3() throws SQLException {
     IoTDBStatement stmt = new IoTDBStatement(connection, client, sessHandle, zoneID);
-    Set<String> sgSet = new HashSet<>();
+    List<String> sgSet = new ArrayList<>();
     sgSet.add("root.vehicle");
     when(fetchMetadataResp.getStorageGroups()).thenReturn(sgSet);
     String standard = "Storage Group,\nroot.vehicle,\n";

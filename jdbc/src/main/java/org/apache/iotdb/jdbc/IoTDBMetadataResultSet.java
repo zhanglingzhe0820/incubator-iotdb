@@ -69,13 +69,13 @@ public class IoTDBMetadataResultSet extends IoTDBQueryResultSet {
         columnItr = columns.iterator();
         break;
       case STORAGE_GROUP:
-        Set<String> storageGroupSet = (Set<String>) object;
+        List<String> storageGroupSet = (List<String>) object;
         colCount = 1;
         showLabels = new String[]{"Storage Group"};
         columnItr = storageGroupSet.iterator();
         break;
       case DEVICES:
-        Set<String> devicesSet = (Set<String>) object;
+        List<String> devicesSet = (List<String>) object;
         colCount = 1;
         showLabels = new String[]{"Device"};
         columnItr = devicesSet.iterator();
