@@ -103,6 +103,10 @@ public class SQLConstant {
   public static final int TOK_UNSET = 64;
   public static final int TOK_SHOW = 65;
 
+  public static final int TOK_LOAD_FILES = 69;
+  public static final int TOK_REMOVE_FILE = 70;
+  public static final int TOK_MOVE_FILE = 71;
+
   public static final Map<Integer, String> tokenSymbol = new HashMap<>();
   public static final Map<Integer, String> tokenNames = new HashMap<>();
   public static final Map<Integer, Integer> reverseWords = new HashMap<>();
@@ -161,6 +165,8 @@ public class SQLConstant {
     tokenNames.put(TOK_SET, "TOK_SET");
     tokenNames.put(TOK_UNSET, "TOK_UNSET");
     tokenNames.put(TOK_SHOW, "TOK_SHOW");
+
+    tokenNames.put(TOK_LOAD_FILES, "TOK_LOAD_FILES");
   }
 
   static {

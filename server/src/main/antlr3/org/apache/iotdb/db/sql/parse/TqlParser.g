@@ -107,6 +107,7 @@ tokens{
     TOK_SHOW;
     TOK_DATE_EXPR;
     TOK_DURATION;
+    TOK_LOAD_FILES;
 }
 
 @header{
@@ -301,6 +302,7 @@ ddlStatement
     | mergeStatement
     | listStatement
     | ttlStatement
+    | operateFileStatement
     ;
 
 administrationStatement
@@ -754,6 +756,26 @@ rootOrId
     | ID
     ;
 
+/*
+****	****
+*************	*************
+TTL	Operate file
+*************	*************
+****	****
+*/
+operateFileStatement
+    : loadFiles
+    ;
+loadFiles
+    : K_LOAD path=FILE autoCreateSchema?
+    -> ^(TOK_LOAD_FILES $path)
+    ;
+
+autoCreateSchema
+    :
+    | BOOLEAN_VALUE
+    | BOOLEAN_VALUE INT
+    ;
 /*
 ****
 *************

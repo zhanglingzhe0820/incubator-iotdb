@@ -416,6 +416,11 @@ DATETIME
       (('+' | '-') INT ':' INT)?
     ;
 
+BOOLEAN_VALUE
+   : T R U E
+   | F A L S E
+   ;
+
 EXPONENT : INT ('e'|'E') ('+'|'-')? INT ;
 
     
@@ -550,4 +555,12 @@ WS  :   ( ' '
 DURATION
     :
     (NUM+ (Y|M O|W|D|H|M|S|M S|U S|N S))+
+    ;
+
+FILE
+    :  (('a'..'z'| 'A'..'Z')(':')?)* (('\\' | '/')+ PATH_FRAGMENT) +
+    ;
+
+fragment PATH_FRAGMENT
+    : ('a'..'z'|'A'..'Z'|'0'..'9'|'_'|'-'|'.')*
     ;

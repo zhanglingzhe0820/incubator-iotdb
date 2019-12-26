@@ -31,6 +31,7 @@ import org.apache.iotdb.db.exception.StorageEngineException;
 import org.apache.iotdb.db.exception.SyncDeviceOwnerConflictException;
 import org.apache.iotdb.db.exception.TsFileProcessorException;
 import org.apache.iotdb.db.sync.conf.SyncConstant;
+import org.apache.iotdb.db.utils.FileLoaderUtils;
 import org.apache.iotdb.tsfile.file.metadata.ChunkGroupMetaData;
 import org.apache.iotdb.tsfile.file.metadata.ChunkMetaData;
 import org.apache.iotdb.tsfile.file.metadata.TsDeviceMetadata;
@@ -139,10 +140,10 @@ public class FileLoader implements IFileLoader {
       return;
     }
     TsFileResource tsFileResource = new TsFileResource(newTsFile);
-    checkTsFileResource(tsFileResource);
+    FileLoaderUtils.checkTsFileResource(tsFileResource);
     try {
       FileLoaderManager.getInstance().checkAndUpdateDeviceOwner(tsFileResource);
-      StorageEngine.getInstance().loadNewTsFile(tsFileResource);
+      StorageEngine.getInstance().loadNewTsFileForSync(tsFileResource);
     } catch (SyncDeviceOwnerConflictException e) {
       LOGGER.error("Device owner has conflicts, so skip the loading file", e);
     } catch (TsFileProcessorException | StorageEngineException e) {
@@ -150,33 +151,6 @@ public class FileLoader implements IFileLoader {
       throw new IOException(e);
     }
     loadLog.finishLoadTsfile(newTsFile);
-  }
-
-  private void checkTsFileResource(TsFileResource tsFileResource) throws IOException {
-    if (!tsFileResource.fileExists()) {
-      // .resource file does not exist, read file metadata and recover tsfile resource
-      try (TsFileSequenceReader reader = new TsFileSequenceReader(
-          tsFileResource.getFile().getAbsolutePath())) {
-        TsFileMetaData metaData = reader.readFileMetadata();
-        for (TsDeviceMetadataIndex index : metaData.getDeviceMap().values()) {
-          TsDeviceMetadata deviceMetadata = reader.readTsDeviceMetaData(index);
-          List<ChunkGroupMetaData> chunkGroupMetaDataList = deviceMetadata
-              .getChunkGroupMetaDataList();
-          for (ChunkGroupMetaData chunkGroupMetaData : chunkGroupMetaDataList) {
-            for (ChunkMetaData chunkMetaData : chunkGroupMetaData.getChunkMetaDataList()) {
-              tsFileResource.updateStartTime(chunkGroupMetaData.getDeviceID(),
-                  chunkMetaData.getStartTime());
-              tsFileResource
-                  .updateEndTime(chunkGroupMetaData.getDeviceID(), chunkMetaData.getEndTime());
-            }
-          }
-        }
-      }
-      // write .resource file
-      tsFileResource.serialize();
-    } else {
-      tsFileResource.deSerialize();
-    }
   }
 
   private void loadDeletedFile(File deletedTsFile) throws IOException {

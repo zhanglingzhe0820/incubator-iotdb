@@ -50,6 +50,7 @@ import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_LINEAR;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_LINK;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_LIST;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_LOAD;
+import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_LOAD_FILES;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_PATH;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_PREVIOUS;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_PRIVILEGES;
@@ -73,6 +74,7 @@ import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_UPDATE;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_USER;
 import static org.apache.iotdb.db.sql.parse.TqlParser.TOK_WHERE;
 
+import java.io.File;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -104,6 +106,7 @@ import org.apache.iotdb.db.qp.logical.sys.DataAuthOperator;
 import org.apache.iotdb.db.qp.logical.sys.DeleteStorageGroupOperator;
 import org.apache.iotdb.db.qp.logical.sys.DeleteTimeSeriesOperator;
 import org.apache.iotdb.db.qp.logical.sys.LoadDataOperator;
+import org.apache.iotdb.db.qp.logical.sys.LoadFilesOperator;
 import org.apache.iotdb.db.qp.logical.sys.PropertyOperator;
 import org.apache.iotdb.db.qp.logical.sys.SetStorageGroupOperator;
 import org.apache.iotdb.db.qp.logical.sys.SetTTLOperator;
@@ -275,6 +278,9 @@ public class LogicalGenerator {
       case TOK_GROUPBY_DEVICE:
         ((QueryOperator) initializedOperator).setGroupByDevice(true);
         return;
+      case TOK_LOAD_FILES:
+        analyzeLoadFile(astNode);
+        return;
       default:
         throw new QueryProcessException("Not supported TqlParser type " + token.getText());
     }
@@ -282,6 +288,22 @@ public class LogicalGenerator {
       analyze((AstNode) node);
     }
   }
+
+  private void analyzeLoadFile(AstNode astNode){
+    if (!astNode.getChild(2).getChild(0).getText().equalsIgnoreCase("true") && !astNode.getChild(2)
+        .getChild(0).getText().equalsIgnoreCase("false")) {
+      initializedOperator = new LoadFilesOperator(true,
+          "Please check the statement: load [FILE] true/false [storage group level]");
+    } else {
+      boolean createSchemaAutomatically = astNode.getChild(2).getChild(0) == null || Boolean
+          .parseBoolean(astNode.getChild(2).getChild(0).getText());
+      int sgLevel = astNode.getChild(2).getChild(1) == null ? IoTDBDescriptor.getInstance().getConfig()
+          .getDefaultStorageGroupLevel() : Integer.parseInt(astNode.getChild(2).getChild(1).getText());
+      initializedOperator = new LoadFilesOperator(new File(astNode.getChild(1).getText()),
+          createSchemaAutomatically, sgLevel);
+    }
+  }
+
 
   private void analyzeTTL(AstNode astNode) throws QueryProcessException {
     int tokenType = astNode.getChild(0).getToken().getType();
