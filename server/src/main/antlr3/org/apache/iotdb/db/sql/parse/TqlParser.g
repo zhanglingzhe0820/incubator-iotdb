@@ -766,9 +766,10 @@ Operate file
 operateFileStatement
     : loadFiles
     ;
+
 loadFiles
     : K_LOAD path=FILE autoCreateSchema?
-    -> ^(TOK_LOAD_FILES $path)
+    -> ^(TOK_LOAD_FILES $path autoCreateSchema?)
     ;
 
 autoCreateSchema

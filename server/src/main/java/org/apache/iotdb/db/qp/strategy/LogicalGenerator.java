@@ -289,18 +289,18 @@ public class LogicalGenerator {
     }
   }
 
-  private void analyzeLoadFile(AstNode astNode){
-    if (astNode.getChild(2).getChild(0) != null && !astNode.getChild(2).getChild(0).getText()
-        .equalsIgnoreCase("true") && !astNode.getChild(2)
-        .getChild(0).getText().equalsIgnoreCase("false")) {
+  private void analyzeLoadFile(AstNode astNode) {
+    if (astNode.getChild(1) != null && !astNode.getChild(1).getText().equalsIgnoreCase("true") && !astNode.getChild(1).getText().equalsIgnoreCase("false")) {
       initializedOperator = new LoadFilesOperator(true,
           "Please check the statement: load [FILE] true/false [storage group level]");
     } else {
-      boolean createSchemaAutomatically = astNode.getChild(2).getChild(0) == null || Boolean
-          .parseBoolean(astNode.getChild(2).getChild(0).getText());
-      int sgLevel = astNode.getChild(2).getChild(1) == null ? IoTDBDescriptor.getInstance().getConfig()
-          .getDefaultStorageGroupLevel() : Integer.parseInt(astNode.getChild(2).getChild(1).getText());
-      initializedOperator = new LoadFilesOperator(new File(astNode.getChild(1).getText()),
+      boolean createSchemaAutomatically =
+          astNode.getChild(1) == null || Boolean
+              .parseBoolean(astNode.getChild(1).getText());
+      int sgLevel =
+          astNode.getChild(2) == null ? IoTDBDescriptor.getInstance().getConfig()
+          .getDefaultStorageGroupLevel() : Integer.parseInt(astNode.getChild(2).getText());
+      initializedOperator = new LoadFilesOperator(new File(astNode.getChild(0).getText()),
           createSchemaAutomatically, sgLevel);
     }
   }
