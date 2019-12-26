@@ -757,11 +757,11 @@ rootOrId
     ;
 
 /*
-****	****
-*************	*************
-TTL	Operate file
-*************	*************
-****	****
+****
+*************
+Operate file
+*************
+****
 */
 operateFileStatement
     : loadFiles
@@ -772,9 +772,8 @@ loadFiles
     ;
 
 autoCreateSchema
-    :
-    | BOOLEAN_VALUE
-    | BOOLEAN_VALUE INT
+    : ID
+    | ID INT
     ;
 /*
 ****

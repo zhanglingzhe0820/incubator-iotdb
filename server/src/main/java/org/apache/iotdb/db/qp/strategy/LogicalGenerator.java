@@ -290,7 +290,8 @@ public class LogicalGenerator {
   }
 
   private void analyzeLoadFile(AstNode astNode){
-    if (!astNode.getChild(2).getChild(0).getText().equalsIgnoreCase("true") && !astNode.getChild(2)
+    if (astNode.getChild(2).getChild(0) != null && !astNode.getChild(2).getChild(0).getText()
+        .equalsIgnoreCase("true") && !astNode.getChild(2)
         .getChild(0).getText().equalsIgnoreCase("false")) {
       initializedOperator = new LoadFilesOperator(true,
           "Please check the statement: load [FILE] true/false [storage group level]");

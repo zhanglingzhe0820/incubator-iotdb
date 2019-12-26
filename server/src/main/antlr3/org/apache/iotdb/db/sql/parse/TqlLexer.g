@@ -416,11 +416,6 @@ DATETIME
       (('+' | '-') INT ':' INT)?
     ;
 
-BOOLEAN_VALUE
-   : T R U E
-   | F A L S E
-   ;
-
 EXPONENT : INT ('e'|'E') ('+'|'-')? INT ;
 
     
