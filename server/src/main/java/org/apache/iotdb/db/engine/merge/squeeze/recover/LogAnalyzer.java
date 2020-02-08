@@ -20,9 +20,11 @@
 package org.apache.iotdb.db.engine.merge.squeeze.recover;
 
 
-import static org.apache.iotdb.db.engine.merge.squeeze.recover.SqueezeMergeLogger.STR_ALL_TS_END;
-import static org.apache.iotdb.db.engine.merge.squeeze.recover.SqueezeMergeLogger.STR_SEQ_FILES;
-import static org.apache.iotdb.db.engine.merge.squeeze.recover.SqueezeMergeLogger.STR_UNSEQ_FILES;
+import org.apache.iotdb.db.engine.merge.manage.MergeResource;
+import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
+import org.apache.iotdb.tsfile.fileSystem.FSFactoryProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,11 +33,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.iotdb.db.engine.merge.manage.MergeResource;
-import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
-import org.apache.iotdb.tsfile.fileSystem.FSFactoryProducer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.iotdb.db.engine.merge.squeeze.recover.SqueezeMergeLogger.*;
 
 /**
  * LogAnalyzer scans the "merge.log" file and recovers information such as files of last merge,

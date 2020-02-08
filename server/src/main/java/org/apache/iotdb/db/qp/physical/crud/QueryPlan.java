@@ -45,10 +45,12 @@ public class QueryPlan extends PhysicalPlan {
   private int rowLimit = 0;
   private int rowOffset = 0;
 
+  private boolean isAlign = true; // for disable align sql
   private boolean isGroupByDevice = false; // for group by device sql
-  private List<String> measurementColumnList; // for group by device sql
-  private Map<String, Set<String>> measurementColumnsGroupByDevice; // for group by device sql
-  private Map<String, TSDataType> dataTypeConsistencyChecker; // for group by device sql
+  private List<String> measurements; // for group by device sql, e.g. temperature
+  private Map<String, Set<String>> measurementsGroupByDevice; // for group by device sql, e.g. root.ln.d1 -> temperature
+  private Map<String, TSDataType> dataTypeConsistencyChecker; // for group by device sql, e.g. root.ln.d1.temperature -> Float
+  private Map<String, IExpression> deviceToFilterMap; // for group by device sql
   private Map<Path, TSDataType> dataTypeMapping = new HashMap<>(); // for group by device sql
 
   public QueryPlan() {
@@ -139,22 +141,30 @@ public class QueryPlan extends PhysicalPlan {
   public void setGroupByDevice(boolean groupByDevice) {
     isGroupByDevice = groupByDevice;
   }
-
-  public void setMeasurementColumnList(List<String> measurementColumnList) {
-    this.measurementColumnList = measurementColumnList;
+  
+  public boolean isAlign() {
+    return isAlign;
+  }
+  
+  public void setAlign(boolean align) {
+    isAlign = align;
   }
 
-  public List<String> getMeasurementColumnList() {
-    return measurementColumnList;
+  public void setMeasurements(List<String> measurements) {
+    this.measurements = measurements;
   }
 
-  public void setMeasurementColumnsGroupByDevice(
-      Map<String, Set<String>> measurementColumnsGroupByDevice) {
-    this.measurementColumnsGroupByDevice = measurementColumnsGroupByDevice;
+  public List<String> getMeasurements() {
+    return measurements;
   }
 
-  public Map<String, Set<String>> getMeasurementColumnsGroupByDevice() {
-    return measurementColumnsGroupByDevice;
+  public void setMeasurementsGroupByDevice(
+      Map<String, Set<String>> measurementsGroupByDevice) {
+    this.measurementsGroupByDevice = measurementsGroupByDevice;
+  }
+
+  public Map<String, Set<String>> getMeasurementsGroupByDevice() {
+    return measurementsGroupByDevice;
   }
 
   public void setDataTypeConsistencyChecker(
@@ -183,4 +193,13 @@ public class QueryPlan extends PhysicalPlan {
       List<TSDataType> deduplicatedDataTypes) {
     this.deduplicatedDataTypes = deduplicatedDataTypes;
   }
+
+  public Map<String, IExpression> getDeviceToFilterMap() {
+    return deviceToFilterMap;
+  }
+
+  public void setDeviceToFilterMap(Map<String, IExpression> deviceToFilterMap) {
+    this.deviceToFilterMap = deviceToFilterMap;
+  }
+
 }

@@ -19,14 +19,15 @@
 
 package org.apache.iotdb.db.engine.merge.squeeze.selector;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map.Entry;
 import org.apache.iotdb.db.engine.merge.BaseFileSelector;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 /**
  * MaxFileMergeFileSelector selects the most files from given seqFiles and unseqFiles which can be
@@ -68,19 +69,19 @@ public class SqueezeMaxFileSelector extends BaseFileSelector {
     tmpFirstOverlapIdx = Integer.MAX_VALUE;
     tmpLastOverlapIdx = Integer.MIN_VALUE;
 
-    logger.debug("Select using tight bound:{}", useTightBound);
+    logger.info("Select using tight bound:{}", useTightBound);
     super.selectByUnseq(useTightBound);
-    logger.debug("After selecting by unseq, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
+    logger.info("After selecting by unseq, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
     if (firstOverlapIdx <= lastOverlapIdx) {
       // selectByUnseq has found candidates, check if we can extend the selection
-      logger.debug("Try extending the seq files");
+      logger.info("Try extending the seq files");
       extendCurrentSelection(useTightBound);
-      logger.debug("After seq extension, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
+      logger.info("After seq extension, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
     } else {
       // try selecting only seq files as candidates
-      logger.debug("Try selecting only seq files");
+      logger.info("Try selecting only seq files");
       selectBySeq(useTightBound);
-      logger.debug("After seq selection, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
+      logger.info("After seq selection, first seq index:{}, last seq index:{}", firstOverlapIdx, lastOverlapIdx);
     }
     for (int i = firstOverlapIdx; i <= lastOverlapIdx; i++) {
       selectedSeqFiles.add(resource.getSeqFiles().get(i));
@@ -109,7 +110,7 @@ public class SqueezeMaxFileSelector extends BaseFileSelector {
           logger.debug("The next file of {} cannot fit memory together, search the next file", seqFile);
         }
       } else {
-        logger.debug("File {} cannot fie memory {}/{}", seqFile, fileCost, memoryBudget);
+        logger.info("File {} cannot fie memory {}/{}", seqFile, fileCost, memoryBudget);
       }
       timeConsumption = System.currentTimeMillis() - startTime;
     }

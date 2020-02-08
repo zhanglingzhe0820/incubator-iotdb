@@ -26,6 +26,7 @@ import java.io.IOException;
 import org.apache.commons.io.FileUtils;
 import org.apache.iotdb.db.conf.adapter.ActiveTimeSeriesCounter;
 import org.apache.iotdb.db.engine.fileSystem.SystemFileFactory;
+import org.apache.iotdb.db.engine.flush.pool.FlushSubTaskPoolManager;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.engine.version.VersionController;
 import org.apache.iotdb.db.exception.storageGroup.StorageGroupProcessorException;
@@ -61,7 +62,7 @@ public class UnseqTsFileRecoverTest {
   private File tsF;
   private TsFileWriter writer;
   private WriteLogNode node;
-  private String logNodePrefix = "testNode";
+  private String logNodePrefix = "testNode/0";
   private Schema schema;
   private TsFileResource resource;
   private VersionController versionController = new VersionController() {
@@ -80,7 +81,8 @@ public class UnseqTsFileRecoverTest {
 
   @Before
   public void setup() throws IOException, WriteProcessException {
-    tsF = SystemFileFactory.INSTANCE.getFile(logNodePrefix, "test.ts");
+    FlushSubTaskPoolManager.getInstance().start();
+    tsF = SystemFileFactory.INSTANCE.getFile(logNodePrefix, "1-1-1.tsfile");
     tsF.getParentFile().mkdirs();
 
     schema = new Schema();
@@ -137,13 +139,15 @@ public class UnseqTsFileRecoverTest {
   @After
   public void tearDown() throws IOException {
     FileUtils.deleteDirectory(tsF.getParentFile());
+    resource.close();
     node.delete();
+    FlushSubTaskPoolManager.getInstance().stop();
   }
 
   @Test
   public void test() throws StorageGroupProcessorException, IOException {
     TsFileRecoverPerformer performer = new TsFileRecoverPerformer(logNodePrefix, schema,
-        versionController, resource, true);
+        versionController, resource, true, false);
     ActiveTimeSeriesCounter.getInstance().init(logNodePrefix);
     performer.recover();
 

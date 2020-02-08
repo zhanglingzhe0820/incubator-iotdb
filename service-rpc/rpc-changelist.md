@@ -33,6 +33,12 @@ Last Updated on October 27th, 2019 by Lei Rui.
 | Remove struct TSDataValue          | Lei Rui            |
 | Remove struct TSRowRecord          | Lei Rui            |
 | Remove optional string version in TSFetchMetadataResp | Genius_pig |
+| Remove optional set<string> childPaths, nodesList, storageGroups, devices in TSFetchMetadataResp | Genius_pig |
+| Remove optional map<string, string> nodeTimeseriesNum in TSFetchMetadataResp | Genius_pig |
+| Remove optional list<list<string>> timeseriesList in TSFetchMetadataResp | Genius_pig |
+| Remove optinoal optional i32 timeseriesNum in TSFetchMetadataResp | Genius_pig |
+| Remove optional i32 nodeLevel in TSFetchMetadataReq | Genius_pig |
+
 
 
 
@@ -101,9 +107,11 @@ Last Updated on November 12th, 2019 by Tian Jiang.
 | Latest Changes                                               | Related Committers                 |
 | ------------------------------------------------------------ | ---------------------------------- |
 | Add parameter sessionId in getTimeZone, getProperties, setStorageGroup, createTimeseries... | Tian Jiang|
+| Add struct TSQueryNonAlignDataSet                            | Haonan Hou|
 
 ## 3. Update
 
 | Latest Changes                                               | Related Committers     |
 | ------------------------------------------------------------ | ---------------------- |
 | Replace TS_SessionHandles with SessionIds, TSOperationHandle with queryIds  | Tian Jiang  |
+| Add optional TSQueryNonAlignDataSet in TSExecuteStatementResp, TSFetchResultsResp and required bool isAlign in TSFetchResultsReq | Haonan Hou |

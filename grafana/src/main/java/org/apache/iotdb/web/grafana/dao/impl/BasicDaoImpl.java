@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,7 @@ public class BasicDaoImpl implements BasicDao {
         default:
           TIMESTAMP_RADIX = 1;
       }
-      logger.debug("Use timestamp precision {}", tsPrecision);
+      logger.info("Use timestamp precision {}", tsPrecision);
     } catch (IOException e) {
       logger.error("Can not find properties [timestamp_precision], use default value [ms]");
       TIMESTAMP_RADIX = 1;
@@ -84,10 +85,10 @@ public class BasicDaoImpl implements BasicDao {
   public List<String> getMetaData() {
     ConnectionCallback<Object> connectionCallback = new ConnectionCallback<Object>() {
       public Object doInConnection(Connection connection) throws SQLException {
-        DatabaseMetaData databaseMetaData = connection.getMetaData();
-        ResultSet resultSet = databaseMetaData
-            .getColumns(Constant.CATALOG_TIMESERIES, "root.*", "root.*", null);
-        logger.debug("Start to get timeseries");
+        Statement statement = connection.createStatement();
+        statement.execute("show timeseries" + "root *");
+        ResultSet resultSet = statement.getResultSet();
+        logger.info("Start to get timeseries");
         List<String> columnsName = new ArrayList<>();
         while (resultSet.next()) {
           String timeseries = resultSet.getString(1);
@@ -106,7 +107,7 @@ public class BasicDaoImpl implements BasicDao {
     String sql = "SELECT " + s.substring(s.lastIndexOf('.') + 1) + " FROM root."
         + s.substring(0, s.lastIndexOf('.')) + " WHERE time > " + from * TIMESTAMP_RADIX
         + " and time < " + to * TIMESTAMP_RADIX;
-    logger.debug(sql);
+    logger.info(sql);
     List<TimeValues> rows = null;
     try {
       rows = jdbcTemplate.query(sql, new TimeValuesRowMapper("root." + s));

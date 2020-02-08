@@ -19,22 +19,6 @@
 
 package org.apache.iotdb.db.engine.merge.squeeze.task;
 
-import static org.apache.iotdb.db.engine.merge.squeeze.task.SqueezeMergeTask.MERGE_SUFFIX;
-import static org.apache.iotdb.db.utils.MergeUtils.writeBatchPoint;
-import static org.apache.iotdb.db.utils.MergeUtils.writeTVPair;
-import static org.apache.iotdb.db.utils.QueryUtils.modifyChunkMetaData;
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SEPARATOR;
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFFIX;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.merge.IMergePathSelector;
 import org.apache.iotdb.db.engine.merge.NaivePathSelector;
@@ -61,6 +45,21 @@ import org.apache.iotdb.tsfile.write.schema.Schema;
 import org.apache.iotdb.tsfile.write.writer.RestorableTsFileIOWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
+import static org.apache.iotdb.db.engine.merge.squeeze.task.SqueezeMergeTask.MERGE_SUFFIX;
+import static org.apache.iotdb.db.utils.MergeUtils.writeBatchPoint;
+import static org.apache.iotdb.db.utils.MergeUtils.writeTVPair;
+import static org.apache.iotdb.db.utils.QueryUtils.modifyChunkMetaData;
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SEPARATOR;
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFFIX;
 
 class MergeSeriesTask {
 
@@ -101,7 +100,7 @@ class MergeSeriesTask {
 
     TsFileResource mergeSeries() throws IOException {
         if (logger.isInfoEnabled()) {
-            logger.debug("{} starts to merge {} series", taskName, unmergedSeries.size());
+            logger.info("{} starts to merge {} series", taskName, unmergedSeries.size());
         }
         long startTime = System.currentTimeMillis();
 
@@ -126,7 +125,7 @@ class MergeSeriesTask {
         mergeLogger.logNewFile(newResource);
 
         if (logger.isInfoEnabled()) {
-            logger.debug("{} all series are merged after {}ms", taskName,
+            logger.info("{} all series are merged after {}ms", taskName,
                     System.currentTimeMillis() - startTime);
         }
 
@@ -138,7 +137,7 @@ class MergeSeriesTask {
             double newProgress = 100 * mergedSeriesCnt / (double) (unmergedSeries.size());
             if (newProgress - progress >= 1.0) {
                 progress = newProgress;
-                logger.debug("{} has merged {}% series", taskName, progress);
+                logger.info("{} has merged {}% series", taskName, progress);
             }
         }
     }

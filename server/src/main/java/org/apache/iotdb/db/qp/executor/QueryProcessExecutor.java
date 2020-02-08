@@ -41,17 +41,10 @@ import org.apache.iotdb.db.qp.logical.sys.AuthorOperator;
 import org.apache.iotdb.db.qp.logical.sys.AuthorOperator.AuthorType;
 import org.apache.iotdb.db.qp.logical.sys.PropertyOperator;
 import org.apache.iotdb.db.qp.physical.PhysicalPlan;
-import org.apache.iotdb.db.qp.physical.crud.AggregationPlan;
-import org.apache.iotdb.db.qp.physical.crud.BatchInsertPlan;
-import org.apache.iotdb.db.qp.physical.crud.DeletePlan;
-import org.apache.iotdb.db.qp.physical.crud.FillQueryPlan;
-import org.apache.iotdb.db.qp.physical.crud.GroupByPlan;
-import org.apache.iotdb.db.qp.physical.crud.InsertPlan;
-import org.apache.iotdb.db.qp.physical.crud.UpdatePlan;
+import org.apache.iotdb.db.qp.physical.crud.*;
 import org.apache.iotdb.db.qp.physical.sys.*;
 import org.apache.iotdb.db.query.context.QueryContext;
 import org.apache.iotdb.db.query.dataset.ListDataSet;
-import org.apache.iotdb.db.query.fill.IFill;
 import org.apache.iotdb.db.utils.AuthUtils;
 import org.apache.iotdb.db.utils.FileLoaderUtils;
 import org.apache.iotdb.db.utils.TypeInferenceUtils;
@@ -69,7 +62,6 @@ import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.Path;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
-import org.apache.iotdb.tsfile.read.expression.IExpression;
 import org.apache.iotdb.tsfile.read.query.dataset.QueryDataSet;
 import org.apache.iotdb.tsfile.utils.Binary;
 import org.apache.iotdb.tsfile.utils.Pair;
@@ -185,6 +177,7 @@ public class QueryProcessExecutor extends AbstractQueryProcessExecutor {
       return;
     }
     TsFileResource tsFileResource = new TsFileResource(file);
+    tsFileResource.setClosed(true);
     try {
       // check file
       RestorableTsFileIOWriter restorableTsFileIOWriter = new RestorableTsFileIOWriter(file);
@@ -459,7 +452,7 @@ public class QueryProcessExecutor extends AbstractQueryProcessExecutor {
   }
 
   @Override
-  public List<String> getAllPaths(String originPath) throws MetadataException {
+  public List<String> getAllMatchedPaths(String originPath) throws MetadataException {
     return MManager.getInstance().getPaths(originPath);
   }
 
@@ -849,27 +842,55 @@ public class QueryProcessExecutor extends AbstractQueryProcessExecutor {
   }
 
   /**
-   * Add a seriesPath to MTree
+   * register with value
    */
-  private void addPathToMTree(String fullPath, TSDataType dataType, TSEncoding encoding,
-      CompressionType compressionType)
-      throws PathException, MetadataException, StorageEngineException {
-    boolean result = mManager.addPathToMTree(
-        fullPath, dataType, encoding, compressionType, Collections.emptyMap());
-    if (result) {
-      storageEngine.addTimeSeries(
-          new Path(fullPath), dataType, encoding, compressionType, Collections.emptyMap());
-    }
-  }
-
   private void addPathToMTree(String deviceId, String measurementId, Object value)
       throws PathException, MetadataException, StorageEngineException {
     TSDataType predictedDataType = TypeInferenceUtils.getPredictedDataType(value);
-    String fullPath = deviceId + IoTDBConstant.PATH_SEPARATOR + measurementId;
+    Path path = new Path(deviceId, measurementId);
     TSEncoding encoding = getDefaultEncoding(predictedDataType);
     CompressionType compressionType =
         CompressionType.valueOf(TSFileDescriptor.getInstance().getConfig().getCompressor());
-    addPathToMTree(fullPath, predictedDataType, encoding, compressionType);
+    addPathToMTree(path, predictedDataType, encoding, compressionType);
+  }
+
+  /**
+   * register with datatype
+   */
+  private void addPathToMTree(String deviceId, String measurementId, TSDataType dataType)
+      throws PathException, MetadataException, StorageEngineException {
+    Path path = new Path(deviceId, measurementId);
+    TSEncoding encoding = getDefaultEncoding(dataType);
+    CompressionType compressionType =
+        CompressionType.valueOf(TSFileDescriptor.getInstance().getConfig().getCompressor());
+    addPathToMTree(path, dataType, encoding, compressionType);
+  }
+
+  /**
+   * Add a seriesPath to MTree, register with datatype, encoding and compression
+   */
+  private void addPathToMTree(Path path, TSDataType dataType, TSEncoding encoding,
+      CompressionType compressionType)
+      throws PathException, MetadataException, StorageEngineException {
+    boolean result = mManager.addPathToMTree(
+        path, dataType, encoding, compressionType, Collections.emptyMap());
+    if (result) {
+      storageEngine.addTimeSeries(path, dataType, encoding, compressionType, Collections.emptyMap());
+    }
+  }
+
+  /**
+   * Add a seriesPath to MTree, register with datatype, encoding and compression
+   */
+  private void addPathToMTree(String path, TSDataType dataType, TSEncoding encoding,
+      CompressionType compressionType)
+      throws PathException, MetadataException, StorageEngineException {
+    boolean result = mManager.addPathToMTree(
+        path, dataType, encoding, compressionType, Collections.emptyMap());
+    if (result) {
+      storageEngine.addTimeSeries(new Path(path),
+          dataType, encoding, compressionType, Collections.emptyMap());
+    }
   }
 
   /**

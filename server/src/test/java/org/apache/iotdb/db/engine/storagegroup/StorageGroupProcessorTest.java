@@ -31,6 +31,7 @@ import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.conf.adapter.ActiveTimeSeriesCounter;
 import org.apache.iotdb.db.constant.TestConstant;
 import org.apache.iotdb.db.engine.MetadataManagerHelper;
+import org.apache.iotdb.db.engine.flush.TsFileFlushPolicy;
 import org.apache.iotdb.db.engine.merge.MergeFileStrategy;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager;
 import org.apache.iotdb.db.engine.querycontext.QueryDataSource;
@@ -54,229 +55,236 @@ import org.junit.Test;
 
 public class StorageGroupProcessorTest {
 
-  private String storageGroup = "root.vehicle.d0";
-  private String systemDir = TestConstant.OUTPUT_DATA_DIR.concat("info");
-  private String deviceId = "root.vehicle.d0";
-  private String measurementId = "s0";
-  private StorageGroupProcessor processor;
-  private QueryContext context = EnvironmentUtils.TEST_QUERY_CONTEXT;
-  private AtomicLong mergeLock;
+    private String storageGroup = "root.vehicle.d0";
+    private String systemDir = TestConstant.OUTPUT_DATA_DIR.concat("info");
+    private String deviceId = "root.vehicle.d0";
+    private String measurementId = "s0";
+    private StorageGroupProcessor processor;
+    private QueryContext context = EnvironmentUtils.TEST_QUERY_CONTEXT;
+    private AtomicLong mergeLock;
 
-  @Before
-  public void setUp() throws Exception {
-    MetadataManagerHelper.initMetadata();
-    EnvironmentUtils.envSetUp();
-    ActiveTimeSeriesCounter.getInstance().init(storageGroup);
-    processor = new DummySGP(systemDir, storageGroup);
-    MergeManager.getINSTANCE().start();
-  }
-
-  @After
-  public void tearDown() throws Exception {
-    processor.syncDeleteDataFiles();
-    EnvironmentUtils.cleanEnv();
-    EnvironmentUtils.cleanDir(TestConstant.OUTPUT_DATA_DIR);
-    MergeManager.getINSTANCE().stop();
-  }
-
-
-  @Test
-  public void testUnseqUnsealedDelete() throws QueryProcessException, IOException {
-    TSRecord record = new TSRecord(10000, deviceId);
-    record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(1000)));
-    processor.insert(new InsertPlan(record));
-    processor.waitForAllCurrentTsFileProcessorsClosed();
-
-
-    for (int j = 1; j <= 10; j++) {
-      record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
+    @Before
+    public void setUp() throws Exception {
+        MetadataManagerHelper.initMetadata();
+        EnvironmentUtils.envSetUp();
+        ActiveTimeSeriesCounter.getInstance().init(storageGroup);
+        processor = new DummySGP(systemDir, storageGroup);
+        MergeManager.getINSTANCE().start();
     }
 
-    processor.getWorkUnSequenceTsFileProcessor().syncFlush();
-
-    for (int j = 11; j <= 20; j++) {
-      record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
+    @After
+    public void tearDown() throws Exception {
+        processor.syncDeleteDataFiles();
+        EnvironmentUtils.cleanEnv();
+        EnvironmentUtils.cleanDir(TestConstant.OUTPUT_DATA_DIR);
+        MergeManager.getINSTANCE().stop();
     }
 
-    processor.delete(deviceId, measurementId, 15L);
 
-    Pair<ReadOnlyMemChunk, List<ChunkMetaData>> pair = processor.getWorkUnSequenceTsFileProcessor()
-        .query(deviceId, measurementId, TSDataType.INT32, Collections.emptyMap(), new QueryContext());
+    @Test
+    public void testUnseqUnsealedDelete() throws QueryProcessException, IOException {
+        TSRecord record = new TSRecord(10000, deviceId);
+        record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(1000)));
+        processor.insert(new InsertPlan(record));
+        processor.waitForAllCurrentTsFileProcessorsClosed();
 
-    List<TimeValuePair> timeValuePairs = pair.left.getSortedTimeValuePairList();
 
-    long time = 16;
-    for (TimeValuePair timeValuePair : timeValuePairs) {
-      Assert.assertEquals(time++, timeValuePair.getTimestamp());
+        for (int j = 1; j <= 10; j++) {
+            record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+        }
+
+        for (TsFileProcessor tsfileProcessor : processor.getWorkUnsequenceTsFileProcessor()) {
+            tsfileProcessor.syncFlush();
+        }
+
+        for (int j = 11; j <= 20; j++) {
+            record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+        }
+
+        processor.delete(deviceId, measurementId, 15L);
+
+        Pair<ReadOnlyMemChunk, List<ChunkMetaData>> pair = null;
+        for (TsFileProcessor tsfileProcessor : processor.getWorkUnsequenceTsFileProcessor()) {
+            pair = tsfileProcessor
+                    .query(deviceId, measurementId, TSDataType.INT32, Collections.emptyMap(),
+                            new QueryContext());
+            break;
+        }
+
+        List<TimeValuePair> timeValuePairs = pair.left.getSortedTimeValuePairList();
+
+        long time = 16;
+        for (TimeValuePair timeValuePair : timeValuePairs) {
+            Assert.assertEquals(time++, timeValuePair.getTimestamp());
+        }
+
+        Assert.assertEquals(0, pair.right.size());
     }
 
-    Assert.assertEquals(0, pair.right.size());
-  }
+    @Test
+    public void testSequenceSyncClose() throws QueryProcessException {
+        for (int j = 1; j <= 10; j++) {
+            TSRecord record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+            processor.putAllWorkingTsFileProcessorIntoClosingList();
+        }
 
-  @Test
-  public void testSequenceSyncClose() throws QueryProcessException {
-    for (int j = 1; j <= 10; j++) {
-      TSRecord record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
-      processor.putAllWorkingTsFileProcessorIntoClosingList();
+        processor.waitForAllCurrentTsFileProcessorsClosed();
+        QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
+                null);
+
+        Assert.assertEquals(10, queryDataSource.getSeqResources().size());
+        for (TsFileResource resource : queryDataSource.getSeqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
     }
 
-    processor.waitForAllCurrentTsFileProcessorsClosed();
-    QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
-        null);
+    @Test
+    public void testIoTDBRowBatchWriteAndSyncClose() throws QueryProcessException {
 
-    Assert.assertEquals(10, queryDataSource.getSeqResources().size());
-    for (TsFileResource resource : queryDataSource.getSeqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-  }
+        String[] measurements = new String[2];
+        measurements[0] = "s0";
+        measurements[1] = "s1";
+        List<Integer> dataTypes = new ArrayList<>();
+        dataTypes.add(TSDataType.INT32.ordinal());
+        dataTypes.add(TSDataType.INT64.ordinal());
 
-  @Test
-  public void testIoTDBRowBatchWriteAndSyncClose() throws QueryProcessException {
+        BatchInsertPlan batchInsertPlan1 = new BatchInsertPlan("root.vehicle.d0", measurements,
+                dataTypes);
 
-    String[] measurements = new String[2];
-    measurements[0] = "s0";
-    measurements[1] = "s1";
-    List<Integer> dataTypes = new ArrayList<>();
-    dataTypes.add(TSDataType.INT32.ordinal());
-    dataTypes.add(TSDataType.INT64.ordinal());
+        long[] times = new long[100];
+        Object[] columns = new Object[2];
+        columns[0] = new int[100];
+        columns[1] = new long[100];
 
-    BatchInsertPlan batchInsertPlan1 = new BatchInsertPlan("root.vehicle.d0", measurements,
-        dataTypes);
+        for (int r = 0; r < 100; r++) {
+            times[r] = r;
+            ((int[]) columns[0])[r] = 1;
+            ((long[]) columns[1])[r] = 1;
+        }
+        batchInsertPlan1.setTimes(times);
+        batchInsertPlan1.setColumns(columns);
+        batchInsertPlan1.setRowCount(times.length);
 
-    long[] times = new long[100];
-    Object[] columns = new Object[2];
-    columns[0] = new int[100];
-    columns[1] = new long[100];
+        processor.insertBatch(batchInsertPlan1);
+        processor.putAllWorkingTsFileProcessorIntoClosingList();
 
-    for (int r = 0; r < 100; r++) {
-      times[r] = r;
-      ((int[]) columns[0])[r] = 1;
-      ((long[]) columns[1])[r] = 1;
-    }
-    batchInsertPlan1.setTimes(times);
-    batchInsertPlan1.setColumns(columns);
-    batchInsertPlan1.setRowCount(times.length);
+        BatchInsertPlan batchInsertPlan2 = new BatchInsertPlan("root.vehicle.d0", measurements,
+                dataTypes);
 
-    processor.insertBatch(batchInsertPlan1);
-    processor.putAllWorkingTsFileProcessorIntoClosingList();
+        for (int r = 50; r < 149; r++) {
+            times[r - 50] = r;
+            ((int[]) columns[0])[r - 50] = 1;
+            ((long[]) columns[1])[r - 50] = 1;
+        }
+        batchInsertPlan2.setTimes(times);
+        batchInsertPlan2.setColumns(columns);
+        batchInsertPlan2.setRowCount(times.length);
 
-    BatchInsertPlan batchInsertPlan2 = new BatchInsertPlan("root.vehicle.d0", measurements,
-        dataTypes);
+        processor.insertBatch(batchInsertPlan2);
+        processor.putAllWorkingTsFileProcessorIntoClosingList();
+        processor.waitForAllCurrentTsFileProcessorsClosed();
 
-    for (int r = 50; r < 149; r++) {
-      times[r - 50] = r;
-      ((int[]) columns[0])[r - 50] = 1;
-      ((long[]) columns[1])[r - 50] = 1;
-    }
-    batchInsertPlan2.setTimes(times);
-    batchInsertPlan2.setColumns(columns);
-    batchInsertPlan2.setRowCount(times.length);
+        QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
+                null);
 
-    processor.insertBatch(batchInsertPlan2);
-    processor.putAllWorkingTsFileProcessorIntoClosingList();
-    processor.waitForAllCurrentTsFileProcessorsClosed();
-
-    QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
-        null);
-
-    Assert.assertEquals(2, queryDataSource.getSeqResources().size());
-    Assert.assertEquals(1, queryDataSource.getUnseqResources().size());
-    for (TsFileResource resource : queryDataSource.getSeqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-  }
-
-
-  @Test
-  public void testSeqAndUnSeqSyncClose() throws QueryProcessException {
-
-    for (int j = 21; j <= 30; j++) {
-      TSRecord record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
-      processor.putAllWorkingTsFileProcessorIntoClosingList();
-    }
-    processor.waitForAllCurrentTsFileProcessorsClosed();
-
-    for (int j = 10; j >= 1; j--) {
-      TSRecord record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
-      processor.putAllWorkingTsFileProcessorIntoClosingList();
+        Assert.assertEquals(2, queryDataSource.getSeqResources().size());
+        Assert.assertEquals(1, queryDataSource.getUnseqResources().size());
+        for (TsFileResource resource : queryDataSource.getSeqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
     }
 
-    processor.waitForAllCurrentTsFileProcessorsClosed();
 
-    QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
-        null);
-    Assert.assertEquals(10, queryDataSource.getSeqResources().size());
-    Assert.assertEquals(10, queryDataSource.getUnseqResources().size());
-    for (TsFileResource resource : queryDataSource.getSeqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-    for (TsFileResource resource : queryDataSource.getUnseqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-  }
+    @Test
+    public void testSeqAndUnSeqSyncClose() throws QueryProcessException {
 
-  @Test
-  public void testMerge() throws QueryProcessException {
-    MergeFileStrategy strategy = IoTDBDescriptor.getInstance().getConfig().getMergeFileStrategy();
-    IoTDBDescriptor.getInstance().getConfig().setMergeFileStrategy(MergeFileStrategy.INPLACE_MAX_SERIES_NUM);
+        for (int j = 21; j <= 30; j++) {
+            TSRecord record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+            processor.putAllWorkingTsFileProcessorIntoClosingList();
+        }
+        processor.waitForAllCurrentTsFileProcessorsClosed();
 
-    mergeLock = new AtomicLong(0);
-    for (int j = 21; j <= 30; j++) {
-      TSRecord record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
-      processor.putAllWorkingTsFileProcessorIntoClosingList();
-    }
-    processor.waitForAllCurrentTsFileProcessorsClosed();
+        for (int j = 10; j >= 1; j--) {
+            TSRecord record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+            processor.putAllWorkingTsFileProcessorIntoClosingList();
+        }
 
-    for (int j = 10; j >= 1; j--) {
-      TSRecord record = new TSRecord(j, deviceId);
-      record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
-      processor.insert(new InsertPlan(record));
-      processor.putAllWorkingTsFileProcessorIntoClosingList();
+        processor.waitForAllCurrentTsFileProcessorsClosed();
+
+        QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
+                null);
+        Assert.assertEquals(10, queryDataSource.getSeqResources().size());
+        Assert.assertEquals(10, queryDataSource.getUnseqResources().size());
+        for (TsFileResource resource : queryDataSource.getSeqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
+        for (TsFileResource resource : queryDataSource.getUnseqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
     }
 
-    processor.waitForAllCurrentTsFileProcessorsClosed();
-    processor.merge(true);
-    while (mergeLock.get() == 0) {
-      // wait
+    @Test
+    public void testMerge() throws QueryProcessException {
+        MergeFileStrategy strategy = IoTDBDescriptor.getInstance().getConfig().getMergeFileStrategy();
+        IoTDBDescriptor.getInstance().getConfig().setMergeFileStrategy(MergeFileStrategy.INPLACE_MAX_SERIES_NUM);
+
+        mergeLock = new AtomicLong(0);
+        for (int j = 21; j <= 30; j++) {
+            TSRecord record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+            processor.putAllWorkingTsFileProcessorIntoClosingList();
+        }
+        processor.waitForAllCurrentTsFileProcessorsClosed();
+
+        for (int j = 10; j >= 1; j--) {
+            TSRecord record = new TSRecord(j, deviceId);
+            record.addTuple(DataPoint.getDataPoint(TSDataType.INT32, measurementId, String.valueOf(j)));
+            processor.insert(new InsertPlan(record));
+            processor.putAllWorkingTsFileProcessorIntoClosingList();
+        }
+
+        processor.waitForAllCurrentTsFileProcessorsClosed();
+        processor.merge(true);
+        while (mergeLock.get() == 0) {
+            // wait
+        }
+
+        QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
+                null);
+        Assert.assertEquals(10, queryDataSource.getSeqResources().size());
+        Assert.assertEquals(10, queryDataSource.getUnseqResources().size());
+        for (TsFileResource resource : queryDataSource.getSeqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
+        for (TsFileResource resource : queryDataSource.getUnseqResources()) {
+            Assert.assertTrue(resource.isClosed());
+        }
+        IoTDBDescriptor.getInstance().getConfig().setMergeFileStrategy(strategy);
     }
 
-    QueryDataSource queryDataSource = processor.query(deviceId, measurementId, context,
-        null);
-    Assert.assertEquals(10, queryDataSource.getSeqResources().size());
-    Assert.assertEquals(0, queryDataSource.getUnseqResources().size());
-    for (TsFileResource resource : queryDataSource.getSeqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-    for (TsFileResource resource : queryDataSource.getUnseqResources()) {
-      Assert.assertTrue(resource.isClosed());
-    }
-    IoTDBDescriptor.getInstance().getConfig().setMergeFileStrategy(strategy);
-  }
+    class DummySGP extends StorageGroupProcessor {
 
-  class DummySGP extends StorageGroupProcessor {
+        DummySGP(String systemInfoDir, String storageGroupName) throws StorageGroupProcessorException {
+            super(systemInfoDir, storageGroupName, new TsFileFlushPolicy.DirectFlushPolicy());
+        }
 
-    DummySGP(String systemInfoDir, String storageGroupName) throws StorageGroupProcessorException {
-      super(systemInfoDir, storageGroupName);
+        @Override
+        protected void mergeEndAction(List<TsFileResource> seqFiles, List<TsFileResource> unseqFiles,
+                                      File mergeLog, TsFileResource newFile) {
+            super.mergeEndAction(seqFiles, unseqFiles, mergeLog, newFile);
+            mergeLock.incrementAndGet();
+            assertFalse(mergeLog.exists());
+        }
     }
-
-    @Override
-    protected void mergeEndAction(List<TsFileResource> seqFiles, List<TsFileResource> unseqFiles,
-        File mergeLog, TsFileResource newFile) {
-      super.mergeEndAction(seqFiles, unseqFiles, mergeLog, newFile);
-      mergeLock.incrementAndGet();
-      assertFalse(mergeLog.exists());
-    }
-  }
 }
