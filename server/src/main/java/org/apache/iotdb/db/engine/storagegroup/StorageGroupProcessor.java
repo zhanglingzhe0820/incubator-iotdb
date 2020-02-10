@@ -18,9 +18,8 @@
  */
 package org.apache.iotdb.db.engine.storagegroup;
 
-import static org.apache.iotdb.db.engine.merge.inplace.task.InplaceMergeTask.MERGE_SUFFIX;
+import static org.apache.iotdb.db.engine.merge.seqMerge.inplace.task.InplaceMergeTask.MERGE_SUFFIX;
 import static org.apache.iotdb.db.engine.storagegroup.TsFileResource.TEMP_SUFFIX;
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SEPARATOR;
 import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFFIX;
 
 import java.io.File;
@@ -44,17 +43,17 @@ import org.apache.iotdb.db.conf.IoTDBConstant;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.conf.directories.DirectoryManager;
 import org.apache.iotdb.db.engine.merge.IRecoverMergeTask;
-import org.apache.iotdb.db.engine.merge.inplace.recover.InplaceMergeLogger;
+import org.apache.iotdb.db.engine.merge.seqMerge.inplace.recover.InplaceMergeLogger;
 import org.apache.iotdb.db.engine.merge.MergeFileStrategy;
-import org.apache.iotdb.db.engine.merge.inplace.task.InplaceMergeTask;
-import org.apache.iotdb.db.engine.merge.inplace.task.RecoverInplaceMergeTask;
+import org.apache.iotdb.db.engine.merge.seqMerge.inplace.task.InplaceMergeTask;
+import org.apache.iotdb.db.engine.merge.seqMerge.inplace.task.RecoverInplaceMergeTask;
 import org.apache.iotdb.db.engine.fileSystem.SystemFileFactory;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
 import org.apache.iotdb.db.engine.merge.IMergeFileSelector;
-import org.apache.iotdb.db.engine.merge.squeeze.recover.SqueezeMergeLogger;
-import org.apache.iotdb.db.engine.merge.squeeze.task.RecoverSqueezeMergeTask;
-import org.apache.iotdb.db.engine.merge.squeeze.task.SqueezeMergeTask;
+import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.recover.SqueezeMergeLogger;
+import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.task.RecoverSqueezeMergeTask;
+import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.task.SqueezeMergeTask;
 import org.apache.iotdb.db.engine.modification.Deletion;
 import org.apache.iotdb.db.engine.modification.Modification;
 import org.apache.iotdb.db.engine.modification.ModificationFile;

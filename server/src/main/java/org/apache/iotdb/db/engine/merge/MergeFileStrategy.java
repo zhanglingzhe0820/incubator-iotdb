@@ -20,12 +20,12 @@
 package org.apache.iotdb.db.engine.merge;
 
 import java.util.concurrent.Callable;
-import org.apache.iotdb.db.engine.merge.IMergeFileSelector;
-import org.apache.iotdb.db.engine.merge.inplace.selector.InplaceMaxFileSelector;
-import org.apache.iotdb.db.engine.merge.inplace.task.InplaceMergeTask;
+
+import org.apache.iotdb.db.engine.merge.seqMerge.inplace.selector.InplaceMaxFileSelector;
+import org.apache.iotdb.db.engine.merge.seqMerge.inplace.task.InplaceMergeTask;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
-import org.apache.iotdb.db.engine.merge.squeeze.selector.SqueezeMaxFileSelector;
-import org.apache.iotdb.db.engine.merge.squeeze.task.SqueezeMergeTask;
+import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.selector.SqueezeMaxFileSelector;
+import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.task.SqueezeMergeTask;
 
 public enum MergeFileStrategy {
   INPLACE_MAX_SERIES_NUM,
