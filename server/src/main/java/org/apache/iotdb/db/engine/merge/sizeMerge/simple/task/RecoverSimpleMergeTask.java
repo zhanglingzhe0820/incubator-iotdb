@@ -25,7 +25,6 @@ import org.apache.iotdb.db.engine.merge.MergeCallback;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
 import org.apache.iotdb.db.engine.merge.sizeMerge.simple.recover.LogAnalyzer;
 import org.apache.iotdb.db.engine.merge.sizeMerge.simple.recover.SimpleMergeLogger;
-import org.apache.iotdb.db.engine.merge.seqMerge.squeeze.recover.LogAnalyzer.Status;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.tsfile.fileSystem.FSFactoryProducer;
 import org.slf4j.Logger;
@@ -42,62 +41,62 @@ import java.util.List;
  */
 public class RecoverSimpleMergeTask extends SimpleMergeTask implements IRecoverMergeTask {
 
-  private static final Logger logger = LoggerFactory.getLogger(RecoverSimpleMergeTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(RecoverSimpleMergeTask.class);
 
-  public RecoverSimpleMergeTask(List<TsFileResource> seqFiles,
-                                List<TsFileResource> unseqFiles, String storageGroupSysDir,
-                                MergeCallback callback, String taskName, String storageGroupName) {
-    super(new MergeResource(seqFiles, unseqFiles), storageGroupSysDir, callback, taskName,
-        1, storageGroupName);
-  }
+    public RecoverSimpleMergeTask(List<TsFileResource> seqFiles,
+                                  List<TsFileResource> unseqFiles, String storageGroupSysDir,
+                                  MergeCallback callback, String taskName, String storageGroupName) {
+        super(new MergeResource(seqFiles, unseqFiles), storageGroupSysDir, callback, taskName,
+                1, storageGroupName);
+    }
 
-  // continueMerge does not work for squeeze strategy
-  public void recoverMerge(boolean continueMerge) throws IOException {
-    File logFile = SystemFileFactory.INSTANCE.getFile(storageGroupSysDir, SimpleMergeLogger.MERGE_LOG_NAME);
-    if (!logFile.exists()) {
-      logger.debug("{} no merge.log, merge recovery ends", taskName);
-      return;
-    }
-    long startTime = System.currentTimeMillis();
+    // continueMerge does not work for squeeze strategy
+    public void recoverMerge(boolean continueMerge) throws IOException {
+        File logFile = SystemFileFactory.INSTANCE.getFile(storageGroupSysDir, SimpleMergeLogger.MERGE_LOG_NAME);
+        if (!logFile.exists()) {
+            logger.debug("{} no merge.log, merge recovery ends", taskName);
+            return;
+        }
+        long startTime = System.currentTimeMillis();
 
-    LogAnalyzer analyzer = new LogAnalyzer(resource, taskName, logFile);
-    Status status = analyzer.analyze();
-    if (logger.isInfoEnabled()) {
-      logger.debug("{} merge recovery status determined: {} after {}ms", taskName, status,
-          (System.currentTimeMillis() - startTime));
+        LogAnalyzer analyzer = new LogAnalyzer(resource, taskName, logFile);
+        LogAnalyzer.Status status = analyzer.analyze();
+        if (logger.isInfoEnabled()) {
+            logger.debug("{} merge recovery status determined: {} after {}ms", taskName, status,
+                    (System.currentTimeMillis() - startTime));
+        }
+        switch (status) {
+            case NONE:
+                logFile.delete();
+                break;
+            case MERGE_START:
+                removeMergedFile();
+                // set the files to empty to let the StorageGroupProcessor do a clean up
+                resource.setSeqFiles(Collections.emptyList());
+                resource.setUnseqFiles(Collections.emptyList());
+                cleanUp(true);
+                break;
+            case ALL_TS_MERGED:
+                newResource = analyzer.getNewResource();
+                cleanUp(true);
+                break;
+            default:
+                throw new UnsupportedOperationException(taskName + " found unrecognized status " + status);
+        }
+        if (logger.isInfoEnabled()) {
+            logger.debug("{} merge recovery ends after {}ms", taskName,
+                    (System.currentTimeMillis() - startTime));
+        }
     }
-    switch (status) {
-      case NONE:
-        logFile.delete();
-        break;
-      case MERGE_START:
-        removeMergedFile();
-        // set the files to empty to let the StorageGroupProcessor do a clean up
-        resource.setSeqFiles(Collections.emptyList());
-        resource.setUnseqFiles(Collections.emptyList());
-        cleanUp(true);
-        break;
-      case ALL_TS_MERGED:
-        newResource = analyzer.getNewResource();
-        cleanUp(true);
-        break;
-      default:
-        throw new UnsupportedOperationException(taskName + " found unrecognized status " + status);
-    }
-    if (logger.isInfoEnabled()) {
-      logger.debug("{} merge recovery ends after {}ms", taskName,
-          (System.currentTimeMillis() - startTime));
-    }
-  }
 
-  private void removeMergedFile() {
-    File sgDir =
-        FSFactoryProducer.getFSFactory().getFile(resource.getSeqFiles().get(0).getFile().getParent());
-    File[] mergeFiles = sgDir.listFiles(file -> file.getName().endsWith(MERGE_SUFFIX));
-    if (mergeFiles != null) {
-      for  (File file : mergeFiles) {
-        file.delete();
-      }
+    private void removeMergedFile() {
+        File sgDir =
+                FSFactoryProducer.getFSFactory().getFile(resource.getSeqFiles().get(0).getFile().getParent());
+        File[] mergeFiles = sgDir.listFiles(file -> file.getName().endsWith(MERGE_SUFFIX));
+        if (mergeFiles != null) {
+            for (File file : mergeFiles) {
+                file.delete();
+            }
+        }
     }
-  }
 }

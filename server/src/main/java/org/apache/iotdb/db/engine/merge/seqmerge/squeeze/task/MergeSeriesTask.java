@@ -17,7 +17,22 @@
  * under the License.
  */
 
-package org.apache.iotdb.db.engine.merge.sizeMerge.simple.task;
+package org.apache.iotdb.db.engine.merge.seqmerge.squeeze.task;
+
+import static org.apache.iotdb.db.engine.merge.seqmerge.squeeze.task.SqueezeMergeTask.MERGE_SUFFIX;
+import static org.apache.iotdb.db.utils.MergeUtils.writeBatchPoint;
+import static org.apache.iotdb.db.utils.MergeUtils.writeTVPair;
+import static org.apache.iotdb.db.utils.QueryUtils.modifyChunkMetaData;
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SEPARATOR;
+import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFFIX;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.merge.IMergePathSelector;
@@ -25,7 +40,7 @@ import org.apache.iotdb.db.engine.merge.NaivePathSelector;
 import org.apache.iotdb.db.engine.merge.manage.MergeContext;
 import org.apache.iotdb.db.engine.merge.manage.MergeManager;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
-import org.apache.iotdb.db.engine.merge.sizeMerge.simple.recover.SimpleMergeLogger;
+import org.apache.iotdb.db.engine.merge.seqmerge.squeeze.recover.SqueezeMergeLogger;
 import org.apache.iotdb.db.engine.modification.Modification;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.query.reader.IPointReader;
@@ -46,21 +61,6 @@ import org.apache.iotdb.tsfile.write.writer.RestorableTsFileIOWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-
-import static org.apache.iotdb.db.engine.merge.seqmerge.squeeze.task.SqueezeMergeTask.MERGE_SUFFIX;
-import static org.apache.iotdb.db.utils.MergeUtils.writeBatchPoint;
-import static org.apache.iotdb.db.utils.MergeUtils.writeTVPair;
-import static org.apache.iotdb.db.utils.QueryUtils.modifyChunkMetaData;
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SEPARATOR;
-import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.TSFILE_SUFFIX;
-
 class MergeSeriesTask {
 
     private static final Logger logger = LoggerFactory.getLogger(
@@ -68,7 +68,7 @@ class MergeSeriesTask {
     private static int minChunkPointNum = IoTDBDescriptor.getInstance().getConfig()
             .getChunkMergePointThreshold();
 
-    private SimpleMergeLogger mergeLogger;
+    private SqueezeMergeLogger mergeLogger;
     private List<Path> unmergedSeries;
 
     private String taskName;
@@ -87,7 +87,7 @@ class MergeSeriesTask {
     private TsFileResource newResource;
     private String currDevice = null;
 
-    MergeSeriesTask(MergeContext context, String taskName, SimpleMergeLogger mergeLogger,
+    MergeSeriesTask(MergeContext context, String taskName, SqueezeMergeLogger mergeLogger,
                     MergeResource mergeResource, List<Path> unmergedSeries,
                     int concurrentMergeSeriesNum) {
         this.mergeContext = context;
@@ -100,12 +100,23 @@ class MergeSeriesTask {
 
     TsFileResource mergeSeries() throws IOException {
         if (logger.isInfoEnabled()) {
-            logger.debug("{} starts to merge {} series", taskName, resource.getSeqFiles().size());
+            logger.debug("{} starts to merge {} series", taskName, unmergedSeries.size());
         }
         long startTime = System.currentTimeMillis();
 
         createNewFileWriter();
-        mergePaths(resource.getSeqFiles());
+        // merge each series and write data into each seqFile's corresponding temp merge file
+        List<List<Path>> devicePaths = MergeUtils.splitPathsByDevice(unmergedSeries);
+        for (List<Path> pathList : devicePaths) {
+            // TODO: use statistics of queries to better rearrange series
+            IMergePathSelector pathSelector = new NaivePathSelector(pathList, concurrentMergeSeriesNum);
+            while (pathSelector.hasNext()) {
+                currMergingPaths = pathSelector.next();
+                mergePaths();
+                mergedSeriesCnt += currMergingPaths.size();
+                logMergeProgress();
+            }
+        }
 
         newFileWriter.endFile(new Schema(newFileWriter.getKnownSchema()));
         // the new file is ready to replace the old ones, write logs so we will not need to start from
@@ -121,7 +132,17 @@ class MergeSeriesTask {
         return newResource;
     }
 
-    private void mergePaths(List<TsFileResource> tsFileResourceList) throws IOException {
+    private void logMergeProgress() {
+        if (logger.isInfoEnabled()) {
+            double newProgress = 100 * mergedSeriesCnt / (double) (unmergedSeries.size());
+            if (newProgress - progress >= 1.0) {
+                progress = newProgress;
+                logger.debug("{} has merged {}% series", taskName, progress);
+            }
+        }
+    }
+
+    private void mergePaths() throws IOException {
         IPointReader[] unseqReaders;
         unseqReaders = resource.getUnseqReaders(currMergingPaths);
         currTimeValuePairs = new TimeValuePair[currMergingPaths.size()];
@@ -131,10 +152,31 @@ class MergeSeriesTask {
             }
         }
 
-        mergeChunks(tsFileResourceList);
+        // merge data of the current paths in each seq file
+        for (int i = 0; i < resource.getSeqFiles().size(); i++) {
+            pathsMergeOneFile(i, unseqReaders);
+        }
 
+        // merge the remaining data in unseq files
+        // this should not change the device max time, because time range of unseq files is always
+        // covered by that of seq files
+        for (int i = 0; i < currMergingPaths.size(); i++) {
+            Path path = currMergingPaths.get(i);
+            IChunkWriter chunkWriter = resource.getChunkWriter(resource.getSchema(path.getMeasurement()));
+            writeRemainingUnseq(chunkWriter, unseqReaders[i], i);
+            chunkWriter.writeToFileWriter(newFileWriter);
+        }
         newFileWriter.endChunkGroup(0);
         currDevice = null;
+    }
+
+    private void writeRemainingUnseq(IChunkWriter chunkWriter,
+                                     IPointReader unseqReader, int pathIdx) throws IOException {
+        while (currTimeValuePairs[pathIdx] != null) {
+            writeTVPair(currTimeValuePairs[pathIdx], chunkWriter);
+            unseqReader.next();
+            currTimeValuePairs[pathIdx] = unseqReader.hasNext() ? unseqReader.current() : null;
+        }
     }
 
     private void createNewFileWriter() throws IOException {
@@ -152,6 +194,57 @@ class MergeSeriesTask {
         newResource = new TsFileResource(newFile);
     }
 
+    private void pathsMergeOneFile(int seqFileIdx, IPointReader[] unseqReaders)
+            throws IOException {
+        TsFileResource currTsFile = resource.getSeqFiles().get(seqFileIdx);
+        String deviceId = currMergingPaths.get(0).getDevice();
+        Long currDeviceMinTime = currTsFile.getStartTimeMap().get(deviceId);
+        if (currDeviceMinTime == null) {
+            return;
+        }
+
+        // if this TsFile receives data later than fileLimitTime, it will overlap the next TsFile,
+        // which is forbidden
+        for (TimeValuePair timeValuePair : currTimeValuePairs) {
+            if (timeValuePair != null && timeValuePair.getTimestamp() < currDeviceMinTime) {
+                currDeviceMinTime = timeValuePair.getTimestamp();
+            }
+        }
+
+        TsFileSequenceReader fileSequenceReader = resource.getFileReader(currTsFile);
+        List<Modification> modifications;
+        List<ChunkMetaData>[] seqChunkMeta = new List[currMergingPaths.size()];
+        for (int i = 0; i < currMergingPaths.size(); i++) {
+            modifications = resource.getModifications(currTsFile, currMergingPaths.get(i));
+            seqChunkMeta[i] = resource.queryChunkMetadata(currMergingPaths.get(i), currTsFile);
+            modifyChunkMetaData(seqChunkMeta[i], modifications);
+        }
+
+        if (allPathEmpty(seqChunkMeta)) {
+            return;
+        }
+
+        for (Path path : currMergingPaths) {
+            MeasurementSchema schema = resource.getSchema(path.getMeasurement());
+            newFileWriter.addSchema(schema);
+        }
+        // start merging a device
+        if (!deviceId.equals(currDevice)) {
+            if (currDevice != null) {
+                // flush previous device
+                resource.flushChunks(newFileWriter);
+                newFileWriter.endChunkGroup(0);
+
+            }
+            newFileWriter.startChunkGroup(deviceId);
+            currDevice = deviceId;
+            newResource.getStartTimeMap().put(deviceId, currDeviceMinTime);
+        }
+        // merge unseq data with seq data in this file or small chunks in this file into a larger chunk
+        long maxTime = mergeChunks(seqChunkMeta, fileSequenceReader, unseqReaders);
+        newResource.updateEndTime(deviceId, maxTime);
+    }
+
     private boolean allPathEmpty(List[] seqChunkMeta) {
         for (int i = 0; i < seqChunkMeta.length; i++) {
             if (!seqChunkMeta[i].isEmpty() || currTimeValuePairs[i] != null) {
@@ -161,36 +254,31 @@ class MergeSeriesTask {
         return true;
     }
 
-    private long mergeChunks(List<TsFileResource> tsFileResourceList)
+    private long mergeChunks(List<ChunkMetaData>[] seqChunkMeta,
+                             TsFileSequenceReader reader, IPointReader[] unseqReaders)
             throws IOException {
         int mergeChunkSubTaskNum = IoTDBDescriptor.getInstance().getConfig().getMergeChunkSubThreadNum();
-        List<TsFileResource>[] chunkMetaLists = (List<TsFileResource>[]) new ArrayList[mergeChunkSubTaskNum];
+        PriorityQueue<MetaListEntry>[] chunkMetaHeaps = new PriorityQueue[mergeChunkSubTaskNum];
         for (int i = 0; i < mergeChunkSubTaskNum; i++) {
-            chunkMetaLists[i] = new ArrayList<>();
+            chunkMetaHeaps[i] = new PriorityQueue<>();
         }
-        int averageNum = tsFileResourceList.size() / mergeChunkSubTaskNum;
-        int idx;
-        for (int i = 0; i < mergeChunkSubTaskNum - 1; i++) {
-            idx = averageNum * i;
-            List<TsFileResource> subTsFileResources = new ArrayList<>();
-            for (int j = 0; j < averageNum; j++) {
-                subTsFileResources.add(tsFileResourceList.get(idx + j));
+        int idx = 0;
+        for (int i = 0; i < currMergingPaths.size(); i++) {
+            if (seqChunkMeta[i].isEmpty()) {
+                continue;
             }
-            chunkMetaLists[i] = subTsFileResources;
+            MetaListEntry entry = new MetaListEntry(i, seqChunkMeta[i]);
+            entry.next();
+
+            chunkMetaHeaps[idx % mergeChunkSubTaskNum].add(entry);
+            idx++;
         }
-        idx = averageNum * (mergeChunkSubTaskNum - 1);
-        if (idx >= 0) {
-            List<TsFileResource> subTsFileResources = new ArrayList<>();
-            for (int j = idx; j < tsFileResourceList.size(); j++) {
-                subTsFileResources.add(tsFileResourceList.get(idx + j));
-            }
-            chunkMetaLists[mergeChunkSubTaskNum - 1] = subTsFileResources;
-        }
+
 
         List<Future<Long>> futures = new ArrayList<>();
         for (int i = 0; i < mergeChunkSubTaskNum; i++) {
             int finalI = i;
-            futures.add(MergeManager.getINSTANCE().submitChunkSubTask(() -> mergeChunkHeap(chunkMetaLists[finalI])));
+            futures.add(MergeManager.getINSTANCE().submitChunkSubTask(() -> mergeChunkHeap(chunkMetaHeaps[finalI], reader, unseqReaders)));
         }
         long maxTime = Long.MIN_VALUE;
         for (int i = 0; i < mergeChunkSubTaskNum; i++) {
@@ -204,7 +292,8 @@ class MergeSeriesTask {
         return maxTime;
     }
 
-    private long mergeChunkHeap(List<TsFileResource> tsFileResources)
+    private long mergeChunkHeap(PriorityQueue<MetaListEntry> chunkMetaHeap,
+                                TsFileSequenceReader reader, IPointReader[] unseqReaders)
             throws IOException {
         long maxTime = Long.MIN_VALUE;
         while (!chunkMetaHeap.isEmpty()) {

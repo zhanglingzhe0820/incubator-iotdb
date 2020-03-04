@@ -16,13 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.iotdb.db.engine.merge.sizeMerge.simple.task;
+package org.apache.iotdb.db.engine.merge.seqmerge.squeeze.task;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.Callable;
 
 import org.apache.iotdb.db.engine.fileSystem.SystemFileFactory;
-import org.apache.iotdb.db.engine.merge.MergeCallback;
 import org.apache.iotdb.db.engine.merge.manage.MergeContext;
 import org.apache.iotdb.db.engine.merge.manage.MergeResource;
-import org.apache.iotdb.db.engine.merge.sizeMerge.simple.recover.SimpleMergeLogger;
+import org.apache.iotdb.db.engine.merge.MergeCallback;
+import org.apache.iotdb.db.engine.merge.seqmerge.squeeze.recover.SqueezeMergeLogger;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.exception.metadata.MetadataException;
 import org.apache.iotdb.db.metadata.MManager;
@@ -33,22 +40,15 @@ import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.Callable;
+public class SqueezeMergeTask implements Callable<Void> {
 
-public class SimpleMergeTask implements Callable<Void> {
-
-    public static final String MERGE_SUFFIX = ".merge.simple";
-    private static final Logger logger = LoggerFactory.getLogger(SimpleMergeTask.class);
+    public static final String MERGE_SUFFIX = ".merge.squeeze";
+    private static final Logger logger = LoggerFactory.getLogger(SqueezeMergeTask.class);
 
     MergeResource resource;
     String storageGroupSysDir;
     String storageGroupName;
-    private SimpleMergeLogger mergeLogger;
+    private SqueezeMergeLogger mergeLogger;
     private MergeContext mergeContext = new MergeContext();
 
     MergeCallback callback;
@@ -57,8 +57,8 @@ public class SimpleMergeTask implements Callable<Void> {
 
     TsFileResource newResource;
 
-    public SimpleMergeTask(MergeResource mergeResource, String storageGroupSysDir, MergeCallback callback,
-                           String taskName, int concurrentMergeSeriesNum, String storageGroupName) {
+    public SqueezeMergeTask(MergeResource mergeResource, String storageGroupSysDir, MergeCallback callback,
+                            String taskName, int concurrentMergeSeriesNum, String storageGroupName) {
         this.resource = mergeResource;
         this.storageGroupSysDir = storageGroupSysDir;
         this.callback = callback;
@@ -78,7 +78,7 @@ public class SimpleMergeTask implements Callable<Void> {
             // empty file lists to avoid files being deleted.
             callback.call(
                     Collections.emptyList(), Collections.emptyList(), SystemFileFactory.INSTANCE.getFile(storageGroupSysDir,
-                            SimpleMergeLogger.MERGE_LOG_NAME), null);
+                            SqueezeMergeLogger.MERGE_LOG_NAME), null);
             throw e;
         }
         return null;
@@ -86,13 +86,13 @@ public class SimpleMergeTask implements Callable<Void> {
 
     private void doMerge() throws IOException, MetadataException {
         if (logger.isInfoEnabled()) {
-            logger.debug("{} starts to merge {} seqFiles", taskName,
-                    resource.getSeqFiles().size());
+            logger.debug("{} starts to merge {} seqFiles, {} unseqFiles", taskName,
+                    resource.getSeqFiles().size(), resource.getUnseqFiles().size());
         }
         long startTime = System.currentTimeMillis();
         long totalFileSize = MergeUtils.collectFileSizes(resource.getSeqFiles(),
                 resource.getUnseqFiles());
-        mergeLogger = new SimpleMergeLogger(storageGroupSysDir);
+        mergeLogger = new SqueezeMergeLogger(storageGroupSysDir);
 
         mergeLogger.logFiles(resource);
 
@@ -135,7 +135,7 @@ public class SimpleMergeTask implements Callable<Void> {
         }
 
         File logFile = FSFactoryProducer.getFSFactory().getFile(storageGroupSysDir,
-                SimpleMergeLogger.MERGE_LOG_NAME);
+                SqueezeMergeLogger.MERGE_LOG_NAME);
         if (executeCallback) {
             // make sure merge.log is not deleted until unseqFiles are cleared so that when system
             // reboots, the undeleted files can be deleted again
