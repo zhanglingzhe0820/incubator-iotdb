@@ -23,6 +23,8 @@ import static org.apache.iotdb.db.engine.merge.seqMerge.inplace.task.InplaceMerg
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
