@@ -172,7 +172,7 @@ public class SqueezeMergeTask implements Callable<Void> {
   }
 
   private void deleteFile(TsFileResource seqFile) {
-    seqFile.getWriteQueryLock().writeLock().lock();
+    seqFile.writeLock();
     try {
       resource.removeFileReader(seqFile);
       ChunkMetadataCache.getInstance().remove(seqFile);
@@ -185,7 +185,7 @@ public class SqueezeMergeTask implements Callable<Void> {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
     } finally {
-      seqFile.getWriteQueryLock().writeLock().unlock();
+      seqFile.writeUnlock();
     }
   }
 }
