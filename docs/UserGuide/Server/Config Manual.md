@@ -363,6 +363,15 @@ The permission definitions are in ${IOTDB\_CONF}/conf/jmx.access.
 |Default| 700 |
 |Effective|After restart system|
 
+* enable\_partial\_insert
+
+|Name| enable\_partial\_insert |
+|:---:|:---|
+|Description| Whether continue to write other measurements if some measurements are failed in one insertion.|
+|Type| Bool |
+|Default| true |
+|Effective|After restart system|
+
 * flush\_wal\_threshold
 
 |Name| flush\_wal\_threshold |
@@ -581,7 +590,7 @@ For performance tuning, you may want to collect the GC info.
 To enable GC log, just add a paramenter "printgc" when you start the server.
 
 ```bash
-sbin/start-server.sh printgc
+nohup sbin/start-server.sh printgc >/dev/null 2>&1 &
 ```
 Or
 ```bash
