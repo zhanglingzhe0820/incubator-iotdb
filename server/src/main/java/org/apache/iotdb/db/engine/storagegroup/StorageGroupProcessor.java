@@ -1584,8 +1584,8 @@ public class StorageGroupProcessor {
   }
 
   public void merge(boolean fullMerge) {
-    testMerge();
-//    seqMerge(fullMerge);
+//    testMerge();
+    seqMerge(fullMerge);
 //    sizeMerge();
   }
 
@@ -1662,8 +1662,8 @@ public class StorageGroupProcessor {
       long timeLowerBound = System.currentTimeMillis() - dataTTL;
       SeqMergeFileStrategy strategy = IoTDBDescriptor.getInstance().getConfig()
           .getSeqMergeFileStrategy();
-      IMergeFileSelector fileSelector = strategy.getFileSelector(sequenceFileTreeSet,
-          unSequenceFileList, budget, timeLowerBound);
+      IMergeFileSelector fileSelector = strategy
+          .getFileSelector(sequenceFileTreeSet, unSequenceFileList, budget, timeLowerBound);
       try {
         Pair<MergeResource, SelectorContext> selectRes = fileSelector.selectMergedFiles();
         MergeResource mergeResource = selectRes.left;
@@ -1918,7 +1918,6 @@ public class StorageGroupProcessor {
 
   /**
    * acquire the write locks of the resource and the merge lock
-   * @param seqFile
    */
   private void doubleWriteLock(TsFileResource seqFile) {
     boolean fileLockGot;
@@ -1934,7 +1933,7 @@ public class StorageGroupProcessor {
         if (fileLockGot) {
           seqFile.writeUnlock();
         }
-        if(mergeLockGot) {
+        if (mergeLockGot) {
           mergeLock.writeLock().unlock();
         }
       }
@@ -1943,7 +1942,6 @@ public class StorageGroupProcessor {
 
   /**
    * release the write locks of the resource and the merge lock
-   * @param seqFile
    */
   private void doubleWriteUnlock(TsFileResource seqFile) {
     mergeLock.writeLock().unlock();
@@ -2052,11 +2050,10 @@ public class StorageGroupProcessor {
 
   /**
    * Set the version in "partition" to "version" if "version" is larger than the current version.
-   * @param partition
-   * @param version
    */
   public void setPartitionFileVersionToMax(long partition, long version) {
-    partitionMaxFileVersions.compute(partition, (prt, oldVer) -> computeMaxVersion(oldVer, version));
+    partitionMaxFileVersions
+        .compute(partition, (prt, oldVer) -> computeMaxVersion(oldVer, version));
   }
 
   private long computeMaxVersion(Long oldVersion, Long newVersion) {
@@ -2067,12 +2064,12 @@ public class StorageGroupProcessor {
   }
 
   /**
-   * Find the position of "newTsFileResource" in the sequence files if it can be inserted into them.
-   * @param newTsFileResource
-   * @param newFilePartitionId
-   * @return POS_ALREADY_EXIST(-2) if some file has the same name as the one to be inserted
-   *         POS_OVERLAP(-3) if some file overlaps the new file
-   *         an insertion position i >= -1 if the new file can be inserted between [i, i+1]
+   * Find the position of "newTsFileResource" in the sequence files if it can be inserted into
+   * them.
+   *
+   * @return POS_ALREADY_EXIST(- 2) if some file has the same name as the one to be inserted
+   * POS_OVERLAP(-3) if some file overlaps the new file an insertion position i >= -1 if the new
+   * file can be inserted between [i, i+1]
    */
   private int findInsertionPosition(TsFileResource newTsFileResource, long newFilePartitionId,
       List<TsFileResource> sequenceList) {
@@ -2151,11 +2148,9 @@ public class StorageGroupProcessor {
   }
 
   /**
-   * If the historical versions of a file is a sub-set of the given file's, (close and) remove it to reduce
-   * unnecessary merge. Only used when the file sender and the receiver share the same file
-   * close policy.
-   * Warning: DO NOT REMOVE
-   * @param resource
+   * If the historical versions of a file is a sub-set of the given file's, (close and) remove it to
+   * reduce unnecessary merge. Only used when the file sender and the receiver share the same file
+   * close policy. Warning: DO NOT REMOVE
    */
   @SuppressWarnings("unused")
   public void removeFullyOverlapFiles(TsFileResource resource) {
@@ -2196,13 +2191,10 @@ public class StorageGroupProcessor {
 
   /**
    * remove the given tsFileResource. If the corresponding tsFileProcessor is in the working status,
-   * close it before remove the related resource files.
-   * maybe time-consuming for closing a tsfile.
-   * @param tsFileResource
-   * @param iterator
-   * @param isSeq
+   * close it before remove the related resource files. maybe time-consuming for closing a tsfile.
    */
-  private void removeFullyOverlapFile(TsFileResource tsFileResource, Iterator<TsFileResource> iterator
+  private void removeFullyOverlapFile(TsFileResource tsFileResource,
+      Iterator<TsFileResource> iterator
       , boolean isSeq) {
     if (!tsFileResource.isClosed()) {
       // also remove the TsFileProcessor if the overlapped file is not closed
@@ -2526,6 +2518,7 @@ public class StorageGroupProcessor {
 
   @FunctionalInterface
   public interface CloseTsFileCallBack {
+
     void call(TsFileProcessor caller) throws TsFileProcessorException, IOException;
   }
 
@@ -2534,17 +2527,15 @@ public class StorageGroupProcessor {
   }
 
   /**
-   * Check if the data of "tsFileResource" all exist locally by comparing the historical versions
-   * in the partition of "partitionNumber". This is available only when the IoTDB instances which generated
-   * "tsFileResource" have the same close file policy as the local one.
-   * If one of the version in "tsFileResource" equals to a version of a working file, false is
-   * returned because "tsFileResource" may have unwritten data of that file.
-   * @param tsFileResource
-   * @param partitionNum
+   * Check if the data of "tsFileResource" all exist locally by comparing the historical versions in
+   * the partition of "partitionNumber". This is available only when the IoTDB instances which
+   * generated "tsFileResource" have the same close file policy as the local one. If one of the
+   * version in "tsFileResource" equals to a version of a working file, false is returned because
+   * "tsFileResource" may have unwritten data of that file.
+   *
    * @return true if the historicalVersions of "tsFileResource" is a subset of
-   * partitionDirectFileVersions, or false if it is not a subset and it contains any
-   * version of a working file
-   * USED by cluster module
+   * partitionDirectFileVersions, or false if it is not a subset and it contains any version of a
+   * working file USED by cluster module
    */
   public boolean isFileAlreadyExist(TsFileResource tsFileResource, long partitionNum) {
     // consider the case: The local node crashes when it is writing TsFile no.5.
