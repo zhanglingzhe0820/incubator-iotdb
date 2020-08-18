@@ -41,9 +41,13 @@ public class DiskChunkLoader implements IChunkLoader {
 
   @Override
   public Chunk loadChunk(ChunkMetadata chunkMetaData) throws IOException {
+    System.out.println();
+    long startTime = System.currentTimeMillis();
     TsFileSequenceReader tsFileSequenceReader =
         FileReaderManager.getInstance().get(resource.getTsFilePath(), resource.isClosed());
-    return ChunkCache.getInstance().get(chunkMetaData, tsFileSequenceReader);
+    Chunk chunk = ChunkCache.getInstance().get(chunkMetaData, tsFileSequenceReader);
+    System.out.println("DiskChunkLoader load time:" + (System.currentTimeMillis() - startTime));
+    return chunk;
   }
 
   @Override

@@ -474,8 +474,10 @@ public class TSServiceImpl implements TSIService.Iface, ServerContext {
       }
       String statement = req.getStatement();
 
+      long startTime = System.currentTimeMillis();
       PhysicalPlan physicalPlan =
           processor.parseSQLToPhysicalPlan(statement, sessionIdZoneIdMap.get(req.getSessionId()));
+      System.out.println("sql-PhysicalPlan cost:" + (System.currentTimeMillis() - startTime));
       if (physicalPlan.isQuery()) {
         return internalExecuteQueryStatement(statement, req.statementId, physicalPlan,
             req.fetchSize,
@@ -544,7 +546,7 @@ public class TSServiceImpl implements TSIService.Iface, ServerContext {
 
   /**
    * @param plan must be a plan for Query: FillQueryPlan, AggregationPlan, GroupByTimePlan, some
-   *             AuthorPlan
+   * AuthorPlan
    */
   private TSExecuteStatementResp internalExecuteQueryStatement(String statement,
       long statementId, PhysicalPlan plan, int fetchSize, String username) throws IOException {

@@ -229,9 +229,9 @@ public class TsFileProcessor {
    * the range [start, end)
    *
    * @param insertTabletPlan insert a tablet of a device
-   * @param start            start index of rows to be inserted in insertTabletPlan
-   * @param end              end index of rows to be inserted in insertTabletPlan
-   * @param results          result array
+   * @param start start index of rows to be inserted in insertTabletPlan
+   * @param end end index of rows to be inserted in insertTabletPlan
+   * @param results result array
    */
   public void insertTablet(InsertTabletPlan insertTabletPlan, int start, int end,
       TSStatus[] results) throws WriteProcessException {
@@ -1010,10 +1010,10 @@ public class TsFileProcessor {
    * memtables and then compact them into one TimeValuePairSorter). Then get the related
    * ChunkMetadata of data on disk.
    *
-   * @param deviceId      device id
+   * @param deviceId device id
    * @param measurementId measurements id
-   * @param dataType      data type
-   * @param encoding      encoding
+   * @param dataType data type
+   * @param encoding encoding
    */
   public void query(String deviceId, String measurementId, TSDataType dataType, TSEncoding encoding,
       Map<String, String> props, QueryContext context,
@@ -1188,8 +1188,7 @@ public class TsFileProcessor {
         VmLogger vmLogger = new VmLogger(tsFileResource.getTsFile().getParent(),
             tsFileResource.getTsFile().getName());
         if (pathMeasurementSchemaMap.size() > 0
-            && vmPointNum / pathMeasurementSchemaMap.size() > config
-            .getMergeChunkPointNumberThreshold() || flushVmTimes >= config
+            && vmPointNum > config.getMergeChunkPointNumberThreshold() || flushVmTimes >= config
             .getMaxMergeChunkNumInTsFile()) {
           // merge vm to tsfile
           flushVmTimes = 0;

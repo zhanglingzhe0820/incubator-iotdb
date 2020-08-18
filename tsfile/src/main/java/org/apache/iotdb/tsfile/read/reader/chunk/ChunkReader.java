@@ -52,7 +52,7 @@ public class ChunkReader implements IChunkReader {
   protected Filter filter;
 
   private List<IPageReader> pageReaderList = new LinkedList<>();
-  
+
   private boolean isFromOldTsFile = false;
 
   /**
@@ -63,7 +63,7 @@ public class ChunkReader implements IChunkReader {
   /**
    * constructor of ChunkReader.
    *
-   * @param chunk  input Chunk object
+   * @param chunk input Chunk object
    * @param filter filter
    */
   public ChunkReader(Chunk chunk, Filter filter) throws IOException {
@@ -72,7 +72,6 @@ public class ChunkReader implements IChunkReader {
     this.deleteIntervalList = chunk.getDeleteIntervalList();
     chunkHeader = chunk.getHeader();
     this.unCompressor = IUnCompressor.getUnCompressor(chunkHeader.getCompressionType());
-
 
     initAllPageReaders();
   }
@@ -89,10 +88,12 @@ public class ChunkReader implements IChunkReader {
   }
 
   private void initAllPageReaders() throws IOException {
+    long startTime = System.currentTimeMillis();
     // construct next satisfied page header
     while (chunkDataBuffer.remaining() > 0) {
       // deserialize a PageHeader from chunkDataBuffer
-      PageHeader pageHeader = isFromOldTsFile ? HeaderUtils.deserializePageHeaderV1(chunkDataBuffer, chunkHeader.getDataType()) :
+      PageHeader pageHeader = isFromOldTsFile ? HeaderUtils
+          .deserializePageHeaderV1(chunkDataBuffer, chunkHeader.getDataType()) :
           PageHeader.deserializeFrom(chunkDataBuffer, chunkHeader.getDataType());
       // if the current page satisfies
       if (pageSatisfied(pageHeader)) {
@@ -101,8 +102,8 @@ public class ChunkReader implements IChunkReader {
         skipBytesInStreamByLength(pageHeader.getCompressedSize());
       }
     }
+    System.out.println("initAllPageReaders cost:" + (System.currentTimeMillis() - startTime));
   }
-
 
 
   /**
@@ -158,9 +159,9 @@ public class ChunkReader implements IChunkReader {
 
     chunkDataBuffer.get(compressedPageBody);
     Decoder valueDecoder = Decoder
-            .getDecoderByType(chunkHeader.getEncodingType(), chunkHeader.getDataType());
+        .getDecoderByType(chunkHeader.getEncodingType(), chunkHeader.getDataType());
     byte[] uncompressedPageData = new byte[pageHeader.getUncompressedSize()];
-    unCompressor.uncompress(compressedPageBody,0, compressedPageBodyLength,
+    unCompressor.uncompress(compressedPageBody, 0, compressedPageBodyLength,
         uncompressedPageData, 0);
     ByteBuffer pageData = ByteBuffer.wrap(uncompressedPageData);
     PageReader reader = new PageReader(pageHeader, pageData, chunkHeader.getDataType(),

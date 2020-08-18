@@ -35,21 +35,18 @@ import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.iotdb.tsfile.fileSystem.FSFactoryProducer;
 import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
 import org.apache.iotdb.tsfile.read.common.BatchData;
+import org.apache.iotdb.tsfile.read.common.Chunk;
+import org.apache.iotdb.tsfile.read.common.Path;
 import org.apache.iotdb.tsfile.read.reader.page.PageReader;
 
 public class TsFileSequenceRead {
 
   public static void main(String[] args) throws IOException {
-    String filename = "test.tsfile";
+    String filename = "/Users/surevil/Documents/incubator-iotdb/distribution/target/apache-iotdb-0.11.0-SNAPSHOT-incubating-bin/apache-iotdb-0.11.0-SNAPSHOT-incubating/data/data/sequence/root.group_0/0/1597725253963-1-0.tsfile";
     if (args.length >= 1) {
       filename = args[0];
     }
     TsFileSequenceReader reader = new TsFileSequenceReader(filename);
-    System.out.println("file length: " + FSFactoryProducer.getFSFactory().getFile(filename).length());
-    System.out.println("file magic head: " + reader.readHeadMagic());
-    System.out.println("file magic tail: " + reader.readTailMagic());
-    System.out.println("Level 1 metadata position: " + reader.getFileMetadataPos());
-    System.out.println("Level 1 metadata size: " + reader.getFileMetadataSize());
     // Sequential reading of one ChunkGroup now follows this order:
     // first SeriesChunks (headers and data) in one ChunkGroup, then the CHUNK_GROUP_FOOTER
     // Because we do not know how many chunks a ChunkGroup may have, we should read one byte (the marker) ahead and
@@ -71,25 +68,19 @@ public class TsFileSequenceRead {
               TSDataType.INT64);
           Decoder valueDecoder = Decoder
               .getDecoderByType(header.getEncodingType(), header.getDataType());
+          long points = 0;
           for (int j = 0; j < header.getNumOfPages(); j++) {
             valueDecoder.reset();
             System.out.println("\t\t[Page]\n \t\tPage head position: " + reader.position());
             PageHeader pageHeader = reader.readPageHeader(header.getDataType());
             System.out.println("\t\tPage data position: " + reader.position());
             System.out.println("\t\tpoints in the page: " + pageHeader.getNumOfValues());
+            points += pageHeader.getNumOfValues();
             ByteBuffer pageData = reader.readPage(pageHeader, header.getCompressionType());
             System.out
                 .println("\t\tUncompressed page data size: " + pageHeader.getUncompressedSize());
-            PageReader reader1 = new PageReader(pageData, header.getDataType(), valueDecoder,
-                defaultTimeDecoder, null);
-            BatchData batchData = reader1.getAllSatisfiedPageData();
-            while (batchData.hasCurrent()) {
-              System.out.println(
-                  "\t\t\ttime, value: " + batchData.currentTime() + ", " + batchData
-                      .currentValue());
-              batchData.next();
-            }
           }
+          System.out.println("\t\tpoints in the chunk: " + points);
           break;
         case MetaMarker.CHUNK_GROUP_FOOTER:
           System.out.println("Chunk Group Footer position: " + reader.position());
@@ -101,7 +92,7 @@ public class TsFileSequenceRead {
           System.out.println("version: " + version);
           break;
         default:
-          MetaMarker.handleUnexpectedMarker(marker);
+//          MetaMarker.handleUnexpectedMarker(marker);
       }
     }
     System.out.println("[Metadata]");

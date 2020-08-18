@@ -46,12 +46,11 @@ import org.slf4j.LoggerFactory;
  *
  * (1) If the TsFile is closed normally, hasCrashed()=false and canWrite()=false
  *
- * (2) Otherwise, the writer generates metadata for already flushed Chunks and truncate crashed data.
- * The hasCrashed()=true and canWrite()=true
+ * (2) Otherwise, the writer generates metadata for already flushed Chunks and truncate crashed
+ * data. The hasCrashed()=true and canWrite()=true
  *
- * Notice!!!
- * If you want to query this file through the generated metadata, remember to call the makeMetadataVisible()
- *
+ * Notice!!! If you want to query this file through the generated metadata, remember to call the
+ * makeMetadataVisible()
  */
 public class RestorableTsFileIOWriter extends TsFileIOWriter {
 
@@ -154,16 +153,17 @@ public class RestorableTsFileIOWriter extends TsFileIOWriter {
    * <p>
    * get chunks' metadata from memory.
    *
-   * @param deviceId      the device id
+   * @param deviceId the device id
    * @param measurementId the measurement id
-   * @param dataType      the value type
+   * @param dataType the value type
    * @return chunks' metadata
    */
 
   public List<ChunkMetadata> getVisibleMetadataList(String deviceId, String measurementId,
       TSDataType dataType) {
-    List<ChunkMetadata> chunkMetadataList = new ArrayList<>();
-    if (metadatasForQuery.containsKey(deviceId) && metadatasForQuery.get(deviceId).containsKey(measurementId)) {
+    long startTime = System.currentTimeMillis();
+    if (metadatasForQuery.containsKey(deviceId) && metadatasForQuery.get(deviceId)
+        .containsKey(measurementId)) {
       for (ChunkMetadata chunkMetaData : metadatasForQuery.get(deviceId).get(measurementId)) {
         // filter: if a device'measurement is defined as float type, and data has been persistent.
         // Then someone deletes the timeseries and recreate it with Int type. We have to ignore
@@ -182,8 +182,8 @@ public class RestorableTsFileIOWriter extends TsFileIOWriter {
   }
 
   /**
-   * add all appendChunkMetadatas into memory. After calling this method, other classes can
-   * read these metadata.
+   * add all appendChunkMetadatas into memory. After calling this method, other classes can read
+   * these metadata.
    */
 
   public void makeMetadataVisible() {
@@ -214,8 +214,8 @@ public class RestorableTsFileIOWriter extends TsFileIOWriter {
   }
 
   /**
-   * get all the chunk's metadata which are appended after the last calling of this method, or
-   * after the class instance is initialized if this is the first time to call the method.
+   * get all the chunk's metadata which are appended after the last calling of this method, or after
+   * the class instance is initialized if this is the first time to call the method.
    *
    * @return a list of Device ChunkMetadataList Pair
    */
