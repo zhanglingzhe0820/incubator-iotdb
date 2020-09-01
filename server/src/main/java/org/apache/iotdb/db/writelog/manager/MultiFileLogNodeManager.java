@@ -45,6 +45,7 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
 
   private ScheduledExecutorService executorService;
   private IoTDBConfig config = IoTDBDescriptor.getInstance().getConfig();
+  long counter = 0;
 
   private final void forceTask(){
         if (IoTDBDescriptor.getInstance().getConfig().isReadOnly()) {
@@ -56,6 +57,7 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
           return;
         }
 
+        long s = System.currentTimeMillis();
         for (WriteLogNode node : nodeMap.values()) {
           try {
             node.forceSync();
@@ -63,6 +65,11 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
             logger.error("Cannot force {}, because ", node, e);
           }
         }
+        counter++;
+        if (counter % 100 == 0) {
+          System.out.println("forceSync cost: " + (System.currentTimeMillis() - s));
+        }
+
   }
 
   private MultiFileLogNodeManager() {
@@ -117,7 +124,7 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
       }
       if (config.getForceWalPeriodInMs() > 0) {
         executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(this::forceTask, config.getForceWalPeriodInMs(),
+        executorService.scheduleWithFixedDelay(this::forceTask, config.getForceWalPeriodInMs(),
             config.getForceWalPeriodInMs(), TimeUnit.MILLISECONDS);
       }
     } catch (Exception e) {
