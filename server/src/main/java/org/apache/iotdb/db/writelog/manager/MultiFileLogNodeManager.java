@@ -64,8 +64,10 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
             logger.error("Cannot force {}, because ", node, e);
           }
         }
-        System.out.println("forceSync," + (System.currentTimeMillis() - s));
-
+        long e = System.currentTimeMillis() - s;
+        if (e != 0) {
+          System.out.println("forceSync," + e);
+        }
   }
 
   private MultiFileLogNodeManager() {
