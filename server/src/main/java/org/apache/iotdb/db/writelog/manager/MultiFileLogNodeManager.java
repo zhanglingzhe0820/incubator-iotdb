@@ -35,8 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * MultiFileLogNodeManager manages all ExclusiveWriteLogNodes, each manages WALs of a TsFile
- * (either seq or unseq).
+ * MultiFileLogNodeManager manages all ExclusiveWriteLogNodes, each manages WALs of a TsFile (either
+ * seq or unseq).
  */
 public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
 
@@ -46,28 +46,31 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
   private ScheduledExecutorService executorService;
   private IoTDBConfig config = IoTDBDescriptor.getInstance().getConfig();
 
-  private final void forceTask(){
-        if (IoTDBDescriptor.getInstance().getConfig().isReadOnly()) {
-          logger.warn("system mode is read-only, the force flush WAL task is stopped");
-          return;
-        }
-        if (Thread.interrupted()) {
-          logger.info("WAL force thread exits.");
-          return;
-        }
+  private final void forceTask() {
+    if (IoTDBDescriptor.getInstance().getConfig().isReadOnly()) {
+      logger.warn("system mode is read-only, the force flush WAL task is stopped");
+      return;
+    }
+    if (Thread.interrupted()) {
+      logger.info("WAL force thread exits.");
+      return;
+    }
 
-        long s = System.currentTimeMillis();
-        for (WriteLogNode node : nodeMap.values()) {
-          try {
-            node.forceSync();
-          } catch (IOException e) {
-            logger.error("Cannot force {}, because ", node, e);
-          }
-        }
-        long e = System.currentTimeMillis() - s;
-        if (e != 0) {
-          System.out.println("forceSync," + e);
-        }
+    long s = System.currentTimeMillis();
+    long size = 0;
+    for (WriteLogNode node : nodeMap.values()) {
+      try {
+        size += node.getSize();
+        node.forceSync();
+      } catch (IOException e) {
+        logger.error("Cannot force {}, because ", node, e);
+      }
+    }
+    long e = System.currentTimeMillis() - s;
+    if (e != 0) {
+      System.out.println("forceSync, size: " + size);
+      System.out.println("forceSync, time: " + e);
+    }
   }
 
   private MultiFileLogNodeManager() {
@@ -153,7 +156,9 @@ public class MultiFileLogNodeManager implements WriteLogNodeManager, IService {
   }
 
   private static class InstanceHolder {
-    private InstanceHolder(){}
+
+    private InstanceHolder() {
+    }
 
     private static MultiFileLogNodeManager instance = new MultiFileLogNodeManager();
   }

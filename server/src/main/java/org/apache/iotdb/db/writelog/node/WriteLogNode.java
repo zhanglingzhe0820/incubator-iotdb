@@ -84,4 +84,10 @@ public interface WriteLogNode {
    */
   ILogReader getLogReader();
 
+  /**
+   * return the size of the node.
+   * @return the size of the node.
+   */
+  long getSize();
+
 }

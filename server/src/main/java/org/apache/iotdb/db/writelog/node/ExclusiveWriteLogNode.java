@@ -106,7 +106,7 @@ public class ExclusiveWriteLogNode implements WriteLogNode, Comparable<Exclusive
       sync();
       plan.serialize(logBuffer);
     }
-    bufferedLogNum ++;
+    bufferedLogNum++;
   }
 
   @Override
@@ -149,7 +149,8 @@ public class ExclusiveWriteLogNode implements WriteLogNode, Comparable<Exclusive
   public void notifyEndFlush() {
     lock.writeLock().lock();
     try {
-      File logFile = SystemFileFactory.INSTANCE.getFile(logDirectory, WAL_FILE_NAME + ++lastFlushedId);
+      File logFile = SystemFileFactory.INSTANCE
+          .getFile(logDirectory, WAL_FILE_NAME + ++lastFlushedId);
       discard(logFile);
     } finally {
       lock.writeLock().unlock();
@@ -184,6 +185,11 @@ public class ExclusiveWriteLogNode implements WriteLogNode, Comparable<Exclusive
     Arrays.sort(logFiles,
         Comparator.comparingInt(f -> Integer.parseInt(f.getName().replace(WAL_FILE_NAME, ""))));
     return new MultiFileLogReader(logFiles);
+  }
+
+  @Override
+  public long getSize() {
+    return logBuffer.position();
   }
 
   private void discard(File logFile) {
