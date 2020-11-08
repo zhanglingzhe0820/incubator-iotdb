@@ -58,6 +58,7 @@
 * 外部异步创建并提交 merge 线程
 * 判断是否要进行乱序合并
   * 调用原乱序合并逻辑，见 MergeManager 文档
+* 若有乱序合并，等待乱序合并执行完
 * 判断是否要进行全局合并
 	* 生成目标文件 {first_file_name}-{max_level_num - 1}.tsfile
 	* 生成合并日志 .compaction.log
