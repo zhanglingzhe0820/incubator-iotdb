@@ -76,7 +76,7 @@ public class LevelCompactionLogTest extends LevelCompactionTest {
   /**
    * close compaction merge callback, to release some locks
    */
-  private void closeCompactionMergeCallBack() {
+  private void closeCompactionMergeCallBack(boolean isMerge, long timePartitionId) {
     this.compactionMergeWorking = false;
   }
 }
