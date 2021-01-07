@@ -203,13 +203,13 @@ public class CompactionUtils {
    * @param tsFileResources  the source resource to be merged
    * @param storageGroup     the storage group name
    * @param compactionLogger the logger
-   * @param devices          the devices to be skipped(used by recover)
+   * @param filterDevices          the devices to be skipped(used by recover)
    */
   @SuppressWarnings("squid:S3776") // Suppress high Cognitive Complexity warning
   public static void merge(TsFileResource targetResource,
       List<TsFileResource> tsFileResources, String storageGroup,
       CompactionLogger compactionLogger,
-      Set<String> devices, boolean sequence) throws IOException, IllegalPathException {
+      Set<String> filterDevices, boolean sequence) throws IOException, IllegalPathException {
     RestorableTsFileIOWriter writer = new RestorableTsFileIOWriter(targetResource.getTsFile());
     Map<String, TsFileSequenceReader> tsFileSequenceReaderMap = new HashMap<>();
     Map<String, List<Modification>> modificationCache = new HashMap<>();
@@ -217,7 +217,7 @@ public class CompactionUtils {
     Set<String> tsFileDevicesMap = getTsFileDevicesSet(tsFileResources, tsFileSequenceReaderMap,
         storageGroup);
     for (String device : tsFileDevicesMap) {
-      if (devices.contains(device)) {
+      if (filterDevices.contains(device)) {
         continue;
       }
       writer.startChunkGroup(device);

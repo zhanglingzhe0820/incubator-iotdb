@@ -20,7 +20,6 @@
 package org.apache.iotdb.db.engine.compaction.level;
 
 import static org.apache.iotdb.db.conf.IoTDBConstant.FILE_NAME_SEPARATOR;
-import static org.apache.iotdb.db.engine.compaction.no.NoCompactionTsFileManagement.compareFileName;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.COMPACTION_LOG_NAME;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.SOURCE_NAME;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.TARGET_NAME;
@@ -43,6 +42,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.cache.ChunkMetadataCache;
+import org.apache.iotdb.db.engine.cache.FileStatistics;
+import org.apache.iotdb.db.engine.cache.FileStatisticsCache;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.engine.compaction.TsFileManagement;
 import org.apache.iotdb.db.engine.compaction.utils.CompactionLogAnalyzer;
@@ -63,6 +64,8 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
   private static final Logger logger = LoggerFactory
       .getLogger(LevelCompactionTsFileManagement.class);
 
+  private final int mergeChunkPointNumberThreshold = Math
+      .max(IoTDBDescriptor.getInstance().getConfig().getMergeChunkPointNumberThreshold(), 1);
   private final int seqLevelNum = Math
       .max(IoTDBDescriptor.getInstance().getConfig().getSeqLevelNum(), 1);
   private final int seqFileNumInEachLevel = Math
@@ -334,7 +337,6 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
         List<String> sourceFileList = logAnalyzer.getSourceFiles();
         long offset = logAnalyzer.getOffset();
         String targetFile = logAnalyzer.getTargetFile();
-        boolean fullMerge = logAnalyzer.isFullMerge();
         boolean isSeq = logAnalyzer.isSeq();
         if (targetFile == null || sourceFileList.isEmpty()) {
           return;
@@ -347,59 +349,35 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
           }
           return;
         }
-        if (fullMerge) {
+        // get tsfile resource from list, as they have been recovered in StorageGroupProcessor
+        TsFileResource targetResource = getTsFileResource(targetFile, isSeq);
+        long timePartition = targetResource.getTimePartition();
+        List<TsFileResource> sourceTsFileResources = new ArrayList<>();
+        for (String file : sourceFileList) {
           // get tsfile resource from list, as they have been recovered in StorageGroupProcessor
-          TsFileResource targetTsFileResource = getTsFileResource(targetFile, isSeq);
-          long timePartition = targetTsFileResource.getTimePartition();
-          RestorableTsFileIOWriter writer = new RestorableTsFileIOWriter(target);
-          // if not complete compaction, resume merge
-          if (writer.hasCrashed()) {
-            if (offset > 0) {
-              writer.getIOWriterOut().truncate(offset - 1);
-            }
-            writer.close();
-            CompactionLogger compactionLogger = new CompactionLogger(storageGroupDir,
-                storageGroupName);
-            CompactionUtils
-                .merge(targetTsFileResource, getTsFileList(isSeq), storageGroupName,
-                    compactionLogger, deviceSet, isSeq);
-            compactionLogger.close();
-          } else {
-            writer.close();
-          }
-          // complete compaction and delete source file
-          deleteAllSubLevelFiles(isSeq, timePartition);
-        } else {
-          // get tsfile resource from list, as they have been recovered in StorageGroupProcessor
-          TsFileResource targetResource = getTsFileResource(targetFile, isSeq);
-          long timePartition = targetResource.getTimePartition();
-          List<TsFileResource> sourceTsFileResources = new ArrayList<>();
-          for (String file : sourceFileList) {
-            // get tsfile resource from list, as they have been recovered in StorageGroupProcessor
-            sourceTsFileResources.add(getTsFileResource(file, isSeq));
-          }
-          int level = getMergeLevel(new File(sourceFileList.get(0)));
-          RestorableTsFileIOWriter writer = new RestorableTsFileIOWriter(target);
-          // if not complete compaction, resume merge
-          if (writer.hasCrashed()) {
-            if (offset > 0) {
-              writer.getIOWriterOut().truncate(offset - 1);
-            }
-            writer.close();
-            CompactionLogger compactionLogger = new CompactionLogger(storageGroupDir,
-                storageGroupName);
-            CompactionUtils
-                .merge(targetResource, sourceTsFileResources, storageGroupName,
-                    compactionLogger, deviceSet,
-                    isSeq);
-            compactionLogger.close();
-          } else {
-            writer.close();
-          }
-          // complete compaction and delete source file
-          deleteLevelFilesInDisk(sourceTsFileResources);
-          deleteLevelFilesInList(timePartition, sourceTsFileResources, level, isSeq);
+          sourceTsFileResources.add(getTsFileResource(file, isSeq));
         }
+        int level = getMergeLevel(new File(sourceFileList.get(0)));
+        RestorableTsFileIOWriter writer = new RestorableTsFileIOWriter(target);
+        // if not complete compaction, resume merge
+        if (writer.hasCrashed()) {
+          if (offset > 0) {
+            writer.getIOWriterOut().truncate(offset - 1);
+          }
+          writer.close();
+          CompactionLogger compactionLogger = new CompactionLogger(storageGroupDir,
+              storageGroupName);
+          CompactionUtils
+              .merge(targetResource, sourceTsFileResources, storageGroupName,
+                  compactionLogger, deviceSet,
+                  isSeq);
+          compactionLogger.close();
+        } else {
+          writer.close();
+        }
+        // complete compaction and delete source file
+        deleteLevelFilesInDisk(sourceTsFileResources);
+        deleteLevelFilesInList(timePartition, sourceTsFileResources, level, isSeq);
       }
     } catch (IOException | IllegalPathException e) {
       logger.error("recover level tsfile management error ", e);
@@ -487,6 +465,9 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
   @SuppressWarnings("squid:S3776")
   private boolean merge(List<List<TsFileResource>> mergeResources, boolean sequence,
       long timePartition, int currMaxLevel, int currMaxFileNumInEachLevel) {
+    if (mergeResources.size() <= 0) {
+      return false;
+    }
     // wait until unseq merge has finished
     while (isUnseqMerging) {
       try {
@@ -501,7 +482,34 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     // whether execute merge chunk in the loop below
     boolean isMerge = false;
     try {
-      logger.info("{} start to filter compaction condition", storageGroupName);
+      logger.info("{} [Compaction] starts full compaction", storageGroupName);
+      // no need to run full compaction in unseq list which unseqLevelNum <= 1
+      if (sequence || unseqLevelNum > 1) {
+        List<TsFileResource> firstLevelTsFileResources = mergeResources.get(0);
+        int index;
+        int sensorNum = 0;
+        long totalPointNum = 0;
+        for (index = 0; index < firstLevelTsFileResources.size(); index++) {
+          TsFileResource tsFileResource = firstLevelTsFileResources.get(index);
+          FileStatistics fileStatistics = FileStatisticsCache.getInstance().get(tsFileResource);
+          if (index == 0) {
+            totalPointNum = fileStatistics.getNumOfPoints();
+            sensorNum = fileStatistics.getSensorNum();
+          } else {
+            totalPointNum += fileStatistics.getNumOfPoints();
+          }
+          // if average chunk point num of target file larger than mergeChunkPointNumberThreshold in config
+          // flush these file to last level
+          if (totalPointNum * 1.0 / sensorNum >= mergeChunkPointNumberThreshold) {
+            mergeToLastLevel(timePartition, firstLevelTsFileResources.subList(0, index + 1),
+                sequence);
+            return true;
+          }
+        }
+      }
+
+      // if not execute full compaction
+      logger.info("{} [Compaction] starts level compaction", storageGroupName);
       for (int i = 0; i < currMaxLevel - 1; i++) {
         List<TsFileResource> currLevelTsFileResource = mergeResources.get(i);
         if (currMaxFileNumInEachLevel <= currLevelTsFileResource.size()) {
@@ -528,7 +536,6 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
               logger.info("{} [Compaction] start to merge TsFile {}", storageGroupName,
                   toMergeTsFile);
             }
-
             TsFileResource newResource = new TsFileResource(newLevelFile);
             // merge, read from source files and write to target file
             CompactionUtils
@@ -572,6 +579,53 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     }
     return isMerge;
   }
+
+  /**
+   * used by full compaction
+   */
+  private void mergeToLastLevel(long timePartitionId, List<TsFileResource> currMergeFiles,
+      boolean sequence) throws IOException, IllegalPathException {
+    CompactionLogger compactionLogger = new CompactionLogger(storageGroupDir,
+        storageGroupName);
+    TsFileResource sourceFile = currMergeFiles.get(0);
+    // get the max level num used here
+    int currMaxLevelNum = sequence ? (seqLevelNum - 1) : (unseqLevelNum - 1);
+    for (TsFileResource mergeResource : currMergeFiles) {
+      compactionLogger.logFile(SOURCE_NAME, mergeResource.getTsFile());
+    }
+    File newTargetFile = createNewTsFileName(sourceFile.getTsFile(), currMaxLevelNum);
+    TsFileResource targetResource = new TsFileResource(newTargetFile);
+    compactionLogger.logSequence(sequence);
+    compactionLogger.logFile(TARGET_NAME, newTargetFile);
+    logger.info("{} [Compaction] merge {} TsFiles to last level",
+        storageGroupName, currMergeFiles.size());
+    CompactionUtils.merge(targetResource, currMergeFiles,
+        storageGroupName, compactionLogger, new HashSet<>(), sequence);
+    logger.info("{} [Compaction] merged {} TsFiles to last level, and start to delete old files",
+        storageGroupName, currMergeFiles.size());
+    // update list in lock
+    writeLock();
+    try {
+      if (sequence) {
+        sequenceTsFileResources.get(timePartitionId).get(currMaxLevelNum).add(targetResource);
+      } else {
+        unSequenceTsFileResources.get(timePartitionId).get(currMaxLevelNum).add(targetResource);
+      }
+      deleteLevelFilesInList(timePartitionId, currMergeFiles, 0, sequence);
+    } finally {
+      writeUnlock();
+    }
+    // delete real file
+    deleteLevelFilesInDisk(currMergeFiles);
+    currMergeFiles.clear();
+    compactionLogger.close();
+    File logFile = FSFactoryProducer.getFSFactory()
+        .getFile(storageGroupDir, storageGroupName + COMPACTION_LOG_NAME);
+    if (logFile.exists()) {
+      Files.delete(logFile.toPath());
+    }
+  }
+
 
   /**
    * if level < maxLevel-1, the file need compaction else, the file can be merged later

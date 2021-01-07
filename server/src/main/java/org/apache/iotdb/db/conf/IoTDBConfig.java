@@ -428,6 +428,11 @@ public class IoTDBConfig {
   private long allocateMemoryForChunkCache = allocateMemoryForRead / 10;
 
   /**
+   * Memory allocated for file statistics cache in compaction process
+   */
+  private long allocateMemoryForFileStatisticsCache = allocateMemoryForRead / 100;
+
+  /**
    * Whether to enable Last cache
    */
   private boolean lastCacheEnable = true;
@@ -1698,6 +1703,14 @@ public class IoTDBConfig {
 
   public void setAllocateMemoryForChunkCache(long allocateMemoryForChunkCache) {
     this.allocateMemoryForChunkCache = allocateMemoryForChunkCache;
+  }
+
+  public long getAllocateMemoryForFileStatisticsCache() {
+    return allocateMemoryForFileStatisticsCache;
+  }
+
+  public void setAllocateMemoryForFileStatisticsCache(long allocateMemoryForFileStatisticsCache) {
+    this.allocateMemoryForFileStatisticsCache = allocateMemoryForFileStatisticsCache;
   }
 
   public boolean isLastCacheEnabled() {

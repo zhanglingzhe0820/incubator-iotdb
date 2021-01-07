@@ -1,0 +1,126 @@
+package org.apache.iotdb.db.engine.cache;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.iotdb.db.conf.IoTDBDescriptor;
+import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
+import org.apache.iotdb.tsfile.file.metadata.ChunkMetadata;
+import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
+import org.apache.iotdb.tsfile.utils.RamUsageEstimator;
+
+public class FileStatisticsCache {
+
+  private final ReadWriteLock lock = new ReentrantReadWriteLock();
+  private static LRULinkedHashMap<AccountableString, FileStatistics> fileStatisticsCache;
+  private static long MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE = IoTDBDescriptor.getInstance()
+      .getConfig().getAllocateMemoryForFileStatisticsCache();
+
+  private FileStatisticsCache() {
+    fileStatisticsCache = new LRULinkedHashMap<AccountableString, FileStatistics>(
+        MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE) {
+      @Override
+      protected long calEntrySize(AccountableString key, FileStatistics value) {
+        if (value == null) {
+          return RamUsageEstimator.sizeOf(key) + RamUsageEstimator.shallowSizeOf(value);
+        }
+        long entrySize;
+        if (count < 10) {
+          long currentSize = value.calculateRamSize();
+          averageSize = ((averageSize * count) + currentSize) / (++count);
+          entrySize = RamUsageEstimator.sizeOf(key)
+              + (currentSize + RamUsageEstimator.NUM_BYTES_OBJECT_REF)
+              + RamUsageEstimator.shallowSizeOf(value);
+        } else if (count < 100000) {
+          count++;
+          entrySize = RamUsageEstimator.sizeOf(key)
+              + (averageSize + RamUsageEstimator.NUM_BYTES_OBJECT_REF)
+              + RamUsageEstimator.shallowSizeOf(value);
+        } else {
+          averageSize = value.calculateRamSize();
+          count = 1;
+          entrySize = RamUsageEstimator.sizeOf(key)
+              + (averageSize + RamUsageEstimator.NUM_BYTES_OBJECT_REF)
+              + RamUsageEstimator.shallowSizeOf(value);
+        }
+        return entrySize;
+      }
+    };
+  }
+
+  public void put(String filePath, long totalPoint, int sensorNum) {
+    lock.writeLock().lock();
+    fileStatisticsCache
+        .put(new AccountableString(filePath), new FileStatistics(totalPoint, sensorNum));
+    lock.readLock().lock();
+  }
+
+  public FileStatistics get(TsFileResource fileResource) throws IOException {
+    String filePath = fileResource.getTsFilePath();
+    AccountableString key = new AccountableString(filePath);
+    if (fileStatisticsCache.containsKey(key)) {
+      lock.readLock().lock();
+      try {
+        return fileStatisticsCache.get(key);
+      } finally {
+        lock.readLock().unlock();
+      }
+    } else {
+      try (TsFileSequenceReader tsFileSequenceReader = new TsFileSequenceReader(
+          fileResource.getTsFilePath())) {
+        long totalPoints = 0;
+        Set<String> sensorSet = new HashSet<>();
+        List<String> devices = tsFileSequenceReader.getAllDevices();
+        for (String device : devices) {
+          Map<String, List<ChunkMetadata>> chunkMetadataListMap = tsFileSequenceReader
+              .readChunkMetadataInDevice(device);
+          for (List<ChunkMetadata> chunkMetadataList : chunkMetadataListMap.values()) {
+            for (ChunkMetadata chunkMetadata : chunkMetadataList) {
+              totalPoints += chunkMetadata.getNumOfPoints();
+              sensorSet.add(chunkMetadata.getMeasurementUid());
+            }
+          }
+        }
+        FileStatistics fileStatistics = new FileStatistics(totalPoints, sensorSet.size());
+        lock.writeLock().lock();
+        try {
+          fileStatisticsCache.put(key, fileStatistics);
+        } finally {
+          lock.writeLock().unlock();
+        }
+        return fileStatistics;
+      }
+    }
+  }
+
+  /**
+   * clear cache.
+   */
+  public void clear() {
+    if (fileStatisticsCache != null) {
+      fileStatisticsCache.clear();
+    }
+  }
+
+  public void remove(String filePath) {
+    if (fileStatisticsCache != null) {
+      fileStatisticsCache.remove(new AccountableString(filePath));
+    }
+  }
+
+  public static FileStatisticsCache getInstance() {
+    return FileStatisticsCacheHolder.INSTANCE;
+  }
+
+  /**
+   * singleton pattern.
+   */
+  private static class FileStatisticsCacheHolder {
+
+    private static final FileStatisticsCache INSTANCE = new FileStatisticsCache();
+  }
+}

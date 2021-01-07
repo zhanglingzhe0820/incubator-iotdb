@@ -19,7 +19,6 @@
 
 package org.apache.iotdb.db.engine.compaction.utils;
 
-import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.FULL_MERGE;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.SEQUENCE_NAME;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.SOURCE_NAME;
 import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.TARGET_NAME;
@@ -66,9 +65,6 @@ public class CompactionLogAnalyzer {
           case TARGET_NAME:
             currLine = bufferedReader.readLine();
             targetFile = currLine;
-            break;
-          case FULL_MERGE:
-            fullMerge = true;
             break;
           case SEQUENCE_NAME:
             isSeq = true;

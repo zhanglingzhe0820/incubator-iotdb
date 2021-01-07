@@ -18,7 +18,6 @@
  */
 package org.apache.iotdb.db.integration;
 
-import static org.apache.iotdb.db.engine.compaction.utils.CompactionLogger.COMPACTION_LOG_NAME;
 import static org.junit.Assert.assertEquals;
 
 import java.sql.Connection;
@@ -26,13 +25,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Random;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.compaction.CompactionStrategy;
 import org.apache.iotdb.db.utils.EnvironmentUtils;
-import org.apache.iotdb.db.utils.FilePathUtils;
 import org.apache.iotdb.jdbc.Config;
-import org.apache.iotdb.tsfile.fileSystem.FSFactoryProducer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,6 +103,63 @@ public class IoTDBLevelCompactionIT {
     }
     IoTDBDescriptor.getInstance().getConfig().setSeqFileNumInEachLevel(prevSeqLevelFileNum);
     IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(prevSeqLevelNum);
+  }
+
+  /**
+   * test compaction files num > MAX_FILE_NUM_IN_LEVEL * MAX_LEVEL_NUM, with full compaction
+   */
+  @Test
+  public void testFullCompaction() throws SQLException {
+    int prevMergeChunkPointNumberThreshold = IoTDBDescriptor.getInstance().getConfig()
+        .getMergeChunkPointNumberThreshold();
+    IoTDBDescriptor.getInstance().getConfig().setSeqFileNumInEachLevel(3 * 7);
+    try (Connection connection = DriverManager
+        .getConnection(Config.IOTDB_URL_PREFIX + "127.0.0.1:6667/", "root", "root");
+        Statement statement = connection.createStatement()) {
+      statement.execute("SET STORAGE GROUP TO root.compactionTest");
+      for (int i = 1; i <= 3; i++) {
+        try {
+          statement.execute("CREATE TIMESERIES root.compactionTest.s" + i + " WITH DATATYPE=INT64,"
+              + "ENCODING=PLAIN");
+        } catch (SQLException e) {
+          // ignore
+        }
+      }
+
+      int flushCount = 32;
+      for (int i = 0; i < flushCount; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      // wait for compaction
+      try{
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+
+      int cnt;
+      try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
+        cnt = 0;
+        while (resultSet.next()) {
+          long time = resultSet.getLong("Time");
+          long s1 = resultSet.getLong("root.compactionTest.s1");
+          long s2 = resultSet.getLong("root.compactionTest.s2");
+          long s3 = resultSet.getLong("root.compactionTest.s3");
+          assertEquals(time + 1, s1);
+          assertEquals(time + 2, s2);
+          assertEquals(time + 3, s3);
+          cnt++;
+        }
+      }
+      assertEquals(flushCount, cnt);
+    }
+    IoTDBDescriptor.getInstance().getConfig()
+        .setMergeChunkPointNumberThreshold(prevMergeChunkPointNumberThreshold);
   }
 
   /**
@@ -918,7 +971,7 @@ public class IoTDBLevelCompactionIT {
     int prevUnSeqLevelNum = IoTDBDescriptor.getInstance().getConfig().getUnseqLevelNum();
     boolean prevEnableUnseqCompaction = IoTDBDescriptor.getInstance().getConfig()
         .isEnableUnseqCompaction();
-    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(false);
+    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(true);
     IoTDBDescriptor.getInstance().getConfig().setSeqFileNumInEachLevel(2);
     IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(3);
     IoTDBDescriptor.getInstance().getConfig().setUnseqFileNumInEachLevel(2);
@@ -1006,6 +1059,200 @@ public class IoTDBLevelCompactionIT {
     IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(prevSeqLevelNum);
     IoTDBDescriptor.getInstance().getConfig().setUnseqFileNumInEachLevel(prevUnSeqLevelFileNum);
     IoTDBDescriptor.getInstance().getConfig().setUnseqLevelNum(prevUnSeqLevelNum);
+  }
+
+  /**
+   * test compaction to last level ,with unseq compaction
+   */
+  @Test
+  public void testCompactionToLastLevelWithUnseqCompaction() throws SQLException {
+    int prevMergeChunkPointNumberThreshold = IoTDBDescriptor.getInstance().getConfig()
+        .getMergeChunkPointNumberThreshold();
+    int prevSeqLevelNum = IoTDBDescriptor.getInstance().getConfig().getSeqLevelNum();
+    boolean prevEnableUnseqCompaction = IoTDBDescriptor.getInstance().getConfig()
+        .isEnableUnseqCompaction();
+    IoTDBDescriptor.getInstance().getConfig().setMergeChunkPointNumberThreshold(1);
+    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(true);
+    IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(10);
+    try (Connection connection = DriverManager
+        .getConnection(Config.IOTDB_URL_PREFIX + "127.0.0.1:6667/", "root", "root");
+        Statement statement = connection.createStatement()) {
+      statement.execute("SET STORAGE GROUP TO root.compactionTest");
+      for (int i = 1; i <= 3; i++) {
+        try {
+          statement.execute("CREATE TIMESERIES root.compactionTest.s" + i + " WITH DATATYPE=INT64,"
+              + "ENCODING=PLAIN");
+        } catch (SQLException e) {
+          // ignore
+        }
+      }
+
+      for (int i = 10000; i < 10001; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      for (int i = 0; i < 50; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      for (int i = 10001; i < 10005; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      int cnt;
+      try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
+        cnt = 0;
+        while (resultSet.next()) {
+          long time = resultSet.getLong("Time");
+          long s1 = resultSet.getLong("root.compactionTest.s1");
+          long s2 = resultSet.getLong("root.compactionTest.s2");
+          long s3 = resultSet.getLong("root.compactionTest.s3");
+          assertEquals(time + 1, s1);
+          assertEquals(time + 2, s2);
+          assertEquals(time + 3, s3);
+          cnt++;
+        }
+      }
+      assertEquals(55, cnt);
+
+      IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(true);
+      for (int i = 10010; i < 10055; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
+        cnt = 0;
+        while (resultSet.next()) {
+          long time = resultSet.getLong("Time");
+          long s1 = resultSet.getLong("root.compactionTest.s1");
+          long s2 = resultSet.getLong("root.compactionTest.s2");
+          long s3 = resultSet.getLong("root.compactionTest.s3");
+          assertEquals(time + 1, s1);
+          assertEquals(time + 2, s2);
+          assertEquals(time + 3, s3);
+          cnt++;
+        }
+      }
+      assertEquals(100, cnt);
+    }
+
+    IoTDBDescriptor.getInstance().getConfig()
+        .setMergeChunkPointNumberThreshold(prevMergeChunkPointNumberThreshold);
+    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(prevEnableUnseqCompaction);
+    IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(prevSeqLevelNum);
+  }
+
+  /**
+   * test compaction to last level ,no unseq compaction
+   */
+  @Test
+  public void testCompactionToLastLevelNoUnseqCompaction() throws SQLException {
+    int prevMergeChunkPointNumberThreshold = IoTDBDescriptor.getInstance().getConfig()
+        .getMergeChunkPointNumberThreshold();
+    int prevSeqLevelNum = IoTDBDescriptor.getInstance().getConfig().getSeqLevelNum();
+    boolean prevEnableUnseqCompaction = IoTDBDescriptor.getInstance().getConfig()
+        .isEnableUnseqCompaction();
+    IoTDBDescriptor.getInstance().getConfig().setMergeChunkPointNumberThreshold(1);
+    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(false);
+    IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(10);
+    try (Connection connection = DriverManager
+        .getConnection(Config.IOTDB_URL_PREFIX + "127.0.0.1:6667/", "root", "root");
+        Statement statement = connection.createStatement()) {
+      statement.execute("SET STORAGE GROUP TO root.compactionTest");
+      for (int i = 1; i <= 3; i++) {
+        try {
+          statement.execute("CREATE TIMESERIES root.compactionTest.s" + i + " WITH DATATYPE=INT64,"
+              + "ENCODING=PLAIN");
+        } catch (SQLException e) {
+          // ignore
+        }
+      }
+
+      for (int i = 10000; i < 10001; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      for (int i = 0; i < 50; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      for (int i = 10001; i < 10005; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      int cnt;
+      try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
+        cnt = 0;
+        while (resultSet.next()) {
+          long time = resultSet.getLong("Time");
+          long s1 = resultSet.getLong("root.compactionTest.s1");
+          long s2 = resultSet.getLong("root.compactionTest.s2");
+          long s3 = resultSet.getLong("root.compactionTest.s3");
+          assertEquals(time + 1, s1);
+          assertEquals(time + 2, s2);
+          assertEquals(time + 3, s3);
+          cnt++;
+        }
+      }
+      assertEquals(55, cnt);
+
+      IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(true);
+      for (int i = 10010; i < 10055; i++) {
+        statement
+            .execute(
+                String.format("INSERT INTO root.compactionTest(timestamp,s1,s2,s3) VALUES (%d,%d,"
+                    + "%d,%d)", i, i + 1, i + 2, i + 3));
+        statement.execute("FLUSH");
+      }
+
+      try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
+        cnt = 0;
+        while (resultSet.next()) {
+          long time = resultSet.getLong("Time");
+          long s1 = resultSet.getLong("root.compactionTest.s1");
+          long s2 = resultSet.getLong("root.compactionTest.s2");
+          long s3 = resultSet.getLong("root.compactionTest.s3");
+          assertEquals(time + 1, s1);
+          assertEquals(time + 2, s2);
+          assertEquals(time + 3, s3);
+          cnt++;
+        }
+      }
+      assertEquals(100, cnt);
+    }
+
+    IoTDBDescriptor.getInstance().getConfig()
+        .setMergeChunkPointNumberThreshold(prevMergeChunkPointNumberThreshold);
+    IoTDBDescriptor.getInstance().getConfig().setEnableUnseqCompaction(prevEnableUnseqCompaction);
+    IoTDBDescriptor.getInstance().getConfig().setSeqLevelNum(prevSeqLevelNum);
   }
 
   /**
