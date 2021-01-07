@@ -483,8 +483,8 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     boolean isMerge = false;
     try {
       logger.info("{} [Compaction] starts full compaction", storageGroupName);
-      // no need to run full compaction in unseq list which unseqLevelNum <= 1
-      if (sequence || unseqLevelNum > 1) {
+      // no need to run full compaction if level num <= 1
+      if ((sequence && seqLevelNum > 1) || (!sequence && unseqLevelNum > 1)) {
         List<TsFileResource> firstLevelTsFileResources = mergeResources.get(0);
         int index;
         int sensorNum = 0;
