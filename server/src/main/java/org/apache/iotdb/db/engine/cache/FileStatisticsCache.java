@@ -38,13 +38,13 @@ public class FileStatisticsCache {
   private final AtomicLong cacheHitNum = new AtomicLong();
   private final AtomicLong cacheRequestNum = new AtomicLong();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
-  private static LRULinkedHashMap<AccountableString, FileStatistics> fileStatisticsCache;
+  private static LRULinkedHashMap<AccountableString, FileStatistics> lruCache;
   private static final long MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE = IoTDBDescriptor
       .getInstance()
       .getConfig().getAllocateMemoryForFileStatisticsCache();
 
   private FileStatisticsCache() {
-    fileStatisticsCache = new LRULinkedHashMap<AccountableString, FileStatistics>(
+    lruCache = new LRULinkedHashMap<AccountableString, FileStatistics>(
         MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE) {
       @Override
       protected long calEntrySize(AccountableString key, FileStatistics value) {
@@ -77,7 +77,7 @@ public class FileStatisticsCache {
 
   public void put(String filePath, long totalPoint, int sensorNum) {
     lock.writeLock().lock();
-    fileStatisticsCache
+    lruCache
         .put(new AccountableString(filePath), new FileStatistics(totalPoint, sensorNum));
     lock.writeLock().unlock();
   }
@@ -86,11 +86,11 @@ public class FileStatisticsCache {
     String filePath = fileResource.getTsFilePath();
     AccountableString key = new AccountableString(filePath);
     cacheRequestNum.incrementAndGet();
-    if (fileStatisticsCache.containsKey(key)) {
+    if (lruCache.containsKey(key)) {
       cacheHitNum.incrementAndGet();
       lock.readLock().lock();
       try {
-        return fileStatisticsCache.get(key);
+        return lruCache.get(key);
       } finally {
         lock.readLock().unlock();
       }
@@ -112,7 +112,7 @@ public class FileStatisticsCache {
           }
         }
         FileStatistics fileStatistics = new FileStatistics(totalPoints, sensorSet.size());
-        fileStatisticsCache.put(key, fileStatistics);
+        lruCache.put(key, fileStatistics);
         return fileStatistics;
       } finally {
         lock.writeLock().unlock();
@@ -124,14 +124,14 @@ public class FileStatisticsCache {
    * clear cache.
    */
   public void clear() {
-    if (fileStatisticsCache != null) {
-      fileStatisticsCache.clear();
+    if (lruCache != null) {
+      lruCache.clear();
     }
   }
 
   public void remove(String filePath) {
-    if (fileStatisticsCache != null) {
-      fileStatisticsCache.remove(new AccountableString(filePath));
+    if (lruCache != null) {
+      lruCache.remove(new AccountableString(filePath));
     }
   }
 
@@ -144,19 +144,19 @@ public class FileStatisticsCache {
   }
 
   public long getUsedMemory() {
-    return fileStatisticsCache.getUsedMemory();
+    return lruCache.getUsedMemory();
   }
 
   public long getMaxMemory() {
-    return fileStatisticsCache.getMaxMemory();
+    return lruCache.getMaxMemory();
   }
 
   public double getUsedMemoryProportion() {
-    return fileStatisticsCache.getUsedMemoryProportion();
+    return lruCache.getUsedMemoryProportion();
   }
 
   public long getAverageSize() {
-    return fileStatisticsCache.getAverageSize();
+    return lruCache.getAverageSize();
   }
 
 

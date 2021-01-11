@@ -49,8 +49,7 @@ public class FileStatistics {
     this.sensorNum = sensorNum;
   }
 
-
-  public long calculateRamSize() {
+  public int calculateRamSize() {
     return NUM_BYTES_OBJECT_HEADER + NUM_BYTES_LONG + NUM_BYTES_INT;
   }
 }

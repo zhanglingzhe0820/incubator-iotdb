@@ -420,26 +420,6 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     }
   }
 
-  private void deleteAllSubLevelFiles(boolean isSeq, long timePartition) {
-    if (isSeq) {
-      for (int level = 0; level < sequenceTsFileResources.get(timePartition).size();
-          level++) {
-        SortedSet<TsFileResource> currLevelMergeFile = sequenceTsFileResources
-            .get(timePartition).get(level);
-        deleteLevelFilesInDisk(currLevelMergeFile);
-        deleteLevelFilesInList(timePartition, currLevelMergeFile, level, isSeq);
-      }
-    } else {
-      for (int level = 0; level < unSequenceTsFileResources.get(timePartition).size();
-          level++) {
-        SortedSet<TsFileResource> currLevelMergeFile = sequenceTsFileResources
-            .get(timePartition).get(level);
-        deleteLevelFilesInDisk(currLevelMergeFile);
-        deleteLevelFilesInList(timePartition, currLevelMergeFile, level, isSeq);
-      }
-    }
-  }
-
   @Override
   public void forkCurrentFileList(long timePartition) {
     synchronized (sequenceTsFileResources) {
@@ -480,7 +460,7 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     isMerge = merge(forkedSequenceTsFileResources, true, timePartition, seqLevelNum,
         seqFileNumInEachLevel);
     if (enableUnseqCompaction && unseqLevelNum <= 1
-        && forkedUnSequenceTsFileResources.get(0).size() > 0) {
+        && !forkedUnSequenceTsFileResources.get(0).isEmpty()) {
       isMerge = true;
       merge(isForceFullMerge, getTsFileList(true), forkedUnSequenceTsFileResources.get(0),
           Long.MAX_VALUE);
@@ -493,7 +473,7 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
   @SuppressWarnings("squid:S3776")
   private boolean merge(List<List<TsFileResource>> mergeResources, boolean sequence,
       long timePartition, int currMaxLevel, int currMaxFileNumInEachLevel) {
-    if (mergeResources.size() <= 0) {
+    if (mergeResources.isEmpty()) {
       return false;
     }
     // wait until unseq merge has finished

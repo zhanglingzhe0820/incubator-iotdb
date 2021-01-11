@@ -135,13 +135,6 @@ public class IoTDBLevelCompactionIT {
         statement.execute("FLUSH");
       }
 
-      // wait for compaction
-      try{
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-
       int cnt;
       try (ResultSet resultSet = statement.executeQuery("SELECT * FROM root.compactionTest")) {
         cnt = 0;
