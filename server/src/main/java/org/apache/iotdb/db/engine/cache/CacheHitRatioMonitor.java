@@ -127,6 +127,31 @@ public class CacheHitRatioMonitor implements CacheHitRatioMonitorMXBean, IServic
     return TimeSeriesMetadataCache.getInstance().getAverageSize();
   }
 
+  @Override
+  public double getFileStatisticsCacheHitRatio() {
+    return FileStatisticsCache.getInstance().calculateFileStatisticsHitRatio();
+  }
+
+  @Override
+  public long getFileStatisticsCacheUsedMemory() {
+    return FileStatisticsCache.getInstance().getUsedMemory();
+  }
+
+  @Override
+  public long getFileStatisticsCacheMaxMemory() {
+    return FileStatisticsCache.getInstance().getMaxMemory();
+  }
+
+  @Override
+  public double getFileStatisticsCacheUsedMemoryProportion() {
+    return FileStatisticsCache.getInstance().getUsedMemoryProportion();
+  }
+
+  @Override
+  public long getFileStatisticsCacheAverageSize() {
+    return FileStatisticsCache.getInstance().getAverageSize();
+  }
+
   public static CacheHitRatioMonitor getInstance() {
     return instance;
   }

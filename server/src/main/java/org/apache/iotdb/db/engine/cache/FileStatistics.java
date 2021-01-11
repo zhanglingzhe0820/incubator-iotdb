@@ -21,7 +21,7 @@ package org.apache.iotdb.db.engine.cache;
 
 import static org.apache.iotdb.tsfile.utils.RamUsageEstimator.NUM_BYTES_INT;
 import static org.apache.iotdb.tsfile.utils.RamUsageEstimator.NUM_BYTES_LONG;
-import static org.apache.iotdb.tsfile.utils.RamUsageEstimator.NUM_BYTES_OBJECT_REF;
+import static org.apache.iotdb.tsfile.utils.RamUsageEstimator.NUM_BYTES_OBJECT_HEADER;
 
 public class FileStatistics {
 
@@ -51,6 +51,6 @@ public class FileStatistics {
 
 
   public long calculateRamSize() {
-    return NUM_BYTES_OBJECT_REF + NUM_BYTES_LONG + NUM_BYTES_INT;
+    return NUM_BYTES_OBJECT_HEADER + NUM_BYTES_LONG + NUM_BYTES_INT;
   }
 }

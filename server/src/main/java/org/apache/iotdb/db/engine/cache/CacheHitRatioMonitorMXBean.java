@@ -52,4 +52,14 @@ public interface CacheHitRatioMonitorMXBean {
 
   long getTimeSeriesMetaDataCacheAverageSize();
 
+
+  double getFileStatisticsCacheHitRatio();
+
+  long getFileStatisticsCacheUsedMemory();
+
+  long getFileStatisticsCacheMaxMemory();
+
+  double getFileStatisticsCacheUsedMemoryProportion();
+
+  long getFileStatisticsCacheAverageSize();
 }

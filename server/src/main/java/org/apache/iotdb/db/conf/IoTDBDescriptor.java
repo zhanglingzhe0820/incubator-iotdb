@@ -288,6 +288,10 @@ public class IoTDBDescriptor {
           .getProperty("estimated_series_size",
               Integer.toString(conf.getEstimatedSeriesSize()))));
 
+      conf.setAllocateMemoryForFileStatisticsCache(Integer.parseInt(properties
+          .getProperty("file_statistics_cache_memory",
+              Long.toString(conf.getAllocateMemoryForFileStatisticsCache()))));
+
       conf.setMergeChunkPointNumberThreshold(Integer.parseInt(properties
           .getProperty("merge_chunk_point_number",
               Integer.toString(conf.getMergeChunkPointNumberThreshold()))));
@@ -569,9 +573,11 @@ public class IoTDBDescriptor {
       //if using org.apache.iotdb.db.auth.authorizer.OpenIdAuthorizer, openID_url is needed.
       conf.setOpenIdProviderUrl(properties.getProperty("openID_url", ""));
 
-      conf.setEnablePartition(Boolean.parseBoolean(properties.getProperty("enable_partition", conf.isEnablePartition() + "")));
+      conf.setEnablePartition(Boolean
+          .parseBoolean(properties.getProperty("enable_partition", conf.isEnablePartition() + "")));
 
-      conf.setPartitionInterval(Long.parseLong(properties.getProperty("partition_interval", conf.getPartitionInterval() + "")));
+      conf.setPartitionInterval(Long.parseLong(
+          properties.getProperty("partition_interval", conf.getPartitionInterval() + "")));
 
       // At the same time, set TSFileConfig
       TSFileDescriptor.getInstance().getConfig()

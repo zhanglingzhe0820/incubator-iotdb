@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
@@ -34,9 +35,12 @@ import org.apache.iotdb.tsfile.utils.RamUsageEstimator;
 
 public class FileStatisticsCache {
 
+  private final AtomicLong cacheHitNum = new AtomicLong();
+  private final AtomicLong cacheRequestNum = new AtomicLong();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private static LRULinkedHashMap<AccountableString, FileStatistics> fileStatisticsCache;
-  private static long MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE = IoTDBDescriptor.getInstance()
+  private static final long MEMORY_THRESHOLD_IN_FILE_STATISTICS_CACHE = IoTDBDescriptor
+      .getInstance()
       .getConfig().getAllocateMemoryForFileStatisticsCache();
 
   private FileStatisticsCache() {
@@ -45,7 +49,7 @@ public class FileStatisticsCache {
       @Override
       protected long calEntrySize(AccountableString key, FileStatistics value) {
         if (value == null) {
-          return RamUsageEstimator.sizeOf(key) + RamUsageEstimator.shallowSizeOf(value);
+          return RamUsageEstimator.sizeOf(key);
         }
         long entrySize;
         if (count < 10) {
@@ -75,13 +79,15 @@ public class FileStatisticsCache {
     lock.writeLock().lock();
     fileStatisticsCache
         .put(new AccountableString(filePath), new FileStatistics(totalPoint, sensorNum));
-    lock.readLock().lock();
+    lock.writeLock().unlock();
   }
 
   public FileStatistics get(TsFileResource fileResource) throws IOException {
     String filePath = fileResource.getTsFilePath();
     AccountableString key = new AccountableString(filePath);
+    cacheRequestNum.incrementAndGet();
     if (fileStatisticsCache.containsKey(key)) {
+      cacheHitNum.incrementAndGet();
       lock.readLock().lock();
       try {
         return fileStatisticsCache.get(key);
@@ -89,6 +95,7 @@ public class FileStatisticsCache {
         lock.readLock().unlock();
       }
     } else {
+      lock.writeLock().lock();
       try (TsFileSequenceReader tsFileSequenceReader = new TsFileSequenceReader(
           fileResource.getTsFilePath())) {
         long totalPoints = 0;
@@ -105,13 +112,10 @@ public class FileStatisticsCache {
           }
         }
         FileStatistics fileStatistics = new FileStatistics(totalPoints, sensorSet.size());
-        lock.writeLock().lock();
-        try {
-          fileStatisticsCache.put(key, fileStatistics);
-        } finally {
-          lock.writeLock().unlock();
-        }
+        fileStatisticsCache.put(key, fileStatistics);
         return fileStatistics;
+      } finally {
+        lock.writeLock().unlock();
       }
     }
   }
@@ -130,6 +134,31 @@ public class FileStatisticsCache {
       fileStatisticsCache.remove(new AccountableString(filePath));
     }
   }
+
+  public double calculateFileStatisticsHitRatio() {
+    if (cacheRequestNum.get() != 0) {
+      return cacheHitNum.get() * 1.0 / cacheRequestNum.get();
+    } else {
+      return 0;
+    }
+  }
+
+  public long getUsedMemory() {
+    return fileStatisticsCache.getUsedMemory();
+  }
+
+  public long getMaxMemory() {
+    return fileStatisticsCache.getMaxMemory();
+  }
+
+  public double getUsedMemoryProportion() {
+    return fileStatisticsCache.getUsedMemoryProportion();
+  }
+
+  public long getAverageSize() {
+    return fileStatisticsCache.getAverageSize();
+  }
+
 
   public static FileStatisticsCache getInstance() {
     return FileStatisticsCacheHolder.INSTANCE;

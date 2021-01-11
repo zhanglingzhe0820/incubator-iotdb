@@ -430,7 +430,7 @@ public class IoTDBConfig {
   /**
    * Memory allocated for file statistics cache in compaction process
    */
-  private long allocateMemoryForFileStatisticsCache = allocateMemoryForRead / 100;
+  private long allocateMemoryForFileStatisticsCache = 100 * 1024 * 1024L;
 
   /**
    * Whether to enable Last cache
