@@ -54,7 +54,7 @@ public class CompactionLogger {
   public void logFile(String prefix, File file) throws IOException {
     logStream.write(prefix);
     logStream.newLine();
-    logStream.write(file.getAbsolutePath());
+    logStream.write(file.getPath());
     logStream.newLine();
     logStream.flush();
   }
