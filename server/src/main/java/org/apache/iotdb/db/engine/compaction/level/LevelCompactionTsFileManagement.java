@@ -486,6 +486,7 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
         return false;
       }
     }
+    isSeqMerging = true;
     long startTimeMillis = System.currentTimeMillis();
     // whether execute merge chunk in the loop below
     boolean isMerge = false;
@@ -527,6 +528,7 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
           // level is numbered from 0
           if (enableUnseqCompaction && !sequence && i == currMaxLevel - 2) {
             // do not merge current unseq file level to upper level and just merge all of them to seq file
+            isSeqMerging = false;
             merge(isForceFullMerge, getTsFileList(true), currLevelTsFileResource, Long.MAX_VALUE);
           } else {
             CompactionLogger compactionLogger = new CompactionLogger(storageGroupDir,
@@ -580,6 +582,7 @@ public class LevelCompactionTsFileManagement extends TsFileManagement {
     } catch (Exception e) {
       logger.error("Error occurred in Compaction Merge thread", e);
     } finally {
+      isSeqMerging = false;
       // reset the merge working state to false
       logger.info("{} [Compaction] merge end time isSeq = {}, isMerge = {}, consumption: {} ms",
           storageGroupName, sequence, isMerge,
